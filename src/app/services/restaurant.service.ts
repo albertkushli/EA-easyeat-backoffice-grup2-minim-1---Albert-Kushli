@@ -13,10 +13,7 @@ export class RestaurantService {
   constructor(private http: HttpClient) {}
 
   createRestaurant(data: Partial<IRestaurant>): Observable<IRestaurant> {
-    return this.http.post<IRestaurant>(
-      `${this.baseUrl}/restaurants`,
-      { data }
-    );
+    return this.http.post<IRestaurant>(`${this.baseUrl}/restaurants`, data);
   }
 
   getRestaurant(restaurantId: string): Observable<IRestaurant> {
@@ -32,10 +29,7 @@ export class RestaurantService {
   }
 
   updateRestaurant(restaurantId: string, data: Partial<IRestaurant>): Observable<IRestaurant> {
-    return this.http.put<IRestaurant>(
-      `${this.baseUrl}/restaurants/${restaurantId}`,
-      { data }
-    );
+    return this.http.put<IRestaurant>(`${this.baseUrl}/restaurants/${restaurantId}`, data);
   }
 
   deleteRestaurant(restaurantId: string): Observable<IRestaurant> {
