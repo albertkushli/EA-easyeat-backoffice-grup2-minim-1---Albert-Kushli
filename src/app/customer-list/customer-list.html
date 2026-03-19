@@ -26,7 +26,6 @@
 
 @if (showForm) {
   <div class="card">
-
     <h3>{{ editting ? 'Edit customer' : 'New customer' }}</h3>
 
     <form [formGroup]="customerForm" (ngSubmit)="guardar()">
@@ -55,7 +54,6 @@
       </button>
 
     </form>
-
   </div>
 }
 
@@ -77,7 +75,7 @@
             }}
           </span>
 
-          <button class="btn" type="button" (click)="toggleExpand(customer._id!)">
+          <button class="btn" (click)="toggleExpand(customer._id!)">
             {{ expanded[customer._id!] ? 'Show less' : 'Show more' }}
           </button>
         </div>
@@ -86,18 +84,14 @@
         <div>
           <span class="muted">{{ customer._id }}</span>
 
-          <button class="btn" type="button" (click)="edit(customer)">
-            Edit
-          </button>
+          <button class="btn" (click)="edit(customer)">Edit</button>
 
-          <button
-            class="btn delete-btn"
-            type="button"
+          <button class="btn delete-btn"
             (click)="confirmDelete(customer._id!, customer.name)">
             X
           </button>
 
-          <button class="btn" type="button" (click)="openReviewForm(customer._id!)">
+          <button class="btn" (click)="openReviewForm(customer._id!)">
             ➕ Review
           </button>
         </div>
@@ -110,10 +104,32 @@
           </div>
         }
 
+        <!-- FILTROS -->
+        @if (expanded[customer._id!]) {
+          <div class="card" style="margin-top:10px;">
+
+            <label>Min rating:</label>
+            <select [(ngModel)]="minRatingFilter"
+              (change)="loadReviews(customer._id!)">
+              <option [ngValue]="null">All</option>
+              <option [ngValue]="5">5+</option>
+              <option [ngValue]="7">7+</option>
+              <option [ngValue]="9">9+</option>
+            </select>
+
+            <label style="margin-left:10px;">
+              <input type="checkbox"
+                [(ngModel)]="sortByLikes"
+                (change)="loadReviews(customer._id!)" />
+              Sort by likes 🔥
+            </label>
+
+          </div>
+        }
+
         <!-- REVIEW FORM -->
         @if (selectedCustomerId === customer._id) {
           <div class="card" style="margin-top:10px;">
-
             <h4>{{ editingReviewId ? 'Edit Review' : 'New Review' }}</h4>
 
             <form [formGroup]="reviewForm" (ngSubmit)="createReview()">
@@ -124,14 +140,14 @@
                   <option value="">Select a restaurant</option>
                   @for (restaurant of restaurants; track restaurant._id) {
                     <option [value]="restaurant._id">
-                      {{ restaurant.profile?.name }}
+                      {{ restaurant.profile.name }}
                     </option>
                   }
                 </select>
               </div>
 
               <div>
-                <label>Rating (1-10):</label>
+                <label>Rating:</label>
                 <input type="number" min="1" max="10" formControlName="rating" />
               </div>
 
@@ -140,8 +156,8 @@
                 <textarea formControlName="comment"></textarea>
               </div>
 
-              <button class="btn" type="submit" [disabled]="reviewForm.invalid">
-                {{ editingReviewId ? 'Update Review' : 'Save Review' }}
+              <button class="btn" type="submit">
+                {{ editingReviewId ? 'Update' : 'Save' }}
               </button>
 
               <button class="btn" type="button" (click)="finishReviewAction()">
@@ -149,47 +165,49 @@
               </button>
 
             </form>
-
           </div>
         }
 
         <!-- REVIEWS -->
         @if (expanded[customer._id!]) {
-          <div class="card" style="margin-top:10px;">
 
+          <div class="card" style="margin-top:10px;">
             <h4>Reviews</h4>
 
-            @if (reviewsByCustomer[customer._id!]?.length) {
+            @if ((reviewsByCustomer[customer._id!] || []).length > 0) {
 
               @for (review of reviewsByCustomer[customer._id!]; track review._id) {
 
                 <div style="border-bottom:1px solid #ccc; margin-bottom:8px; padding-bottom:8px;">
 
-                  <p style="font-weight:bold; font-size:16px;">
-                    {{ review.restaurant_id.name }}
-                  </p>
+                  <!-- RESTAURANT -->
+                  <p><strong>{{ review.restaurant_id.name }}</strong></p>
 
-                  <p>⭐ {{ review.rating }}/10</p>
+                  <!-- ⭐ ESTRELLAS (FIX NG0955) -->
+                  <div>
+                    @for (_ of getStars(review.rating); track $index) {
+                      <span>⭐</span>
+                    }
+                  </div>
 
+                  <!-- COMMENT -->
                   <p>{{ review.comment }}</p>
 
-                  <button class="btn" type="button" (click)="like(review)">
+                  <!-- LIKE -->
+                  <button class="btn" (click)="like(review)">
                     👍 {{ review.likes || 0 }}
                   </button>
 
+                  <!-- ACTIONS -->
                   <div style="margin-top:5px;">
-
-                    <button class="btn" type="button" (click)="editReview(review)">
+                    <button class="btn" (click)="editReview(review)">
                       ✏️ Edit
                     </button>
 
-                    <button
-                      class="btn delete-btn"
-                      type="button"
+                    <button class="btn delete-btn"
                       (click)="deleteReview(review._id!, customer._id!)">
                       🗑 Delete
                     </button>
-
                   </div>
 
                 </div>
@@ -200,6 +218,29 @@
               <p>No reviews yet</p>
             }
 
+            <!-- PAGINACIÓN -->
+            <div style="margin-top:10px; display:flex; gap:10px;">
+
+              <button class="btn"
+                (click)="prevPage(customer._id!)"
+                [disabled]="(reviewPage[customer._id!] || 0) === 0">
+                ⬅ Prev
+              </button>
+
+              <span>
+                Page {{ (reviewPage[customer._id!] || 0) + 1 }}
+                /
+                {{ Math.max(1, Math.ceil((reviewTotal[customer._id!] || 0) / reviewLimit)) }}
+              </span>
+
+              <button class="btn"
+                (click)="nextPage(customer._id!)"
+                [disabled]="((reviewPage[customer._id!] || 0) + 1) * reviewLimit >= (reviewTotal[customer._id!] || 0)">
+                Next ➡
+              </button>
+
+            </div>
+
           </div>
         }
 
@@ -208,17 +249,14 @@
     }
 
   </ul>
-
 }
 
 @if (!showAllCustomers && customers.length > limit) {
-  <button class="btn" type="button" (click)="showMore()">
-    Show more
-  </button>
+  <button class="btn" (click)="showMore()">Show more</button>
 }
 
 @if (showAllCustomers) {
-  <button class="btn" type="button" (click)="showAllCustomers = false">
+  <button class="btn" (click)="showAllCustomers = false">
     Show less
   </button>
 }
@@ -227,6 +265,4 @@
   <p>No customers.</p>
 }
 
-<button class="btn" type="button" (click)="load()">
-  Refresh
-</button>
+<button class="btn" (click)="load()">Refresh</button>

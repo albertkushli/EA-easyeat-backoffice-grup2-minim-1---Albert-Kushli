@@ -23,4 +23,6 @@ export interface IReview {
 
   comment?: string;
   likes?: number;
+
+   deleted?: boolean;
 }

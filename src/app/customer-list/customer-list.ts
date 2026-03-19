@@ -6,13 +6,15 @@ import { RestaurantService } from '../services/restaurant.service';
 
 import { ICustomer } from '../models/customer.model';
 import { IReview } from '../models/review.model';
+import { IRestaurant } from '../models/restaurant.model';
 
 import {
+  FormsModule,
   ReactiveFormsModule,
   FormBuilder,
   FormGroup,
   Validators,
-  FormControl
+  FormControl,
 } from '@angular/forms';
 
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -21,16 +23,20 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
 @Component({
   selector: 'app-customer-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatDialogModule],
   templateUrl: './customer-list.html',
 })
 export class CustomerList implements OnInit {
+
+  // 🔥 FIX Math en template
+  Math = Math;
+
   customers: ICustomer[] = [];
   filteredCustomers: ICustomer[] = [];
 
-  customerEditId: string | undefined;
+  customerEditId?: string;
   reviewsByCustomer: { [key: string]: IReview[] } = {};
-  restaurants: any[] = [];
+  restaurants: IRestaurant[] = [];
 
   loading = true;
   errorMsg = '';
@@ -51,6 +57,13 @@ export class CustomerList implements OnInit {
   showAllCustomers = false;
   limit = 10;
 
+  reviewLimit = 3;
+  reviewPage: { [key: string]: number } = {};
+  reviewTotal: { [key: string]: number } = {};
+
+  minRatingFilter: number | null = null;
+  sortByLikes = false;
+
   constructor(
     private api: CustomerService,
     private reviewService: ReviewService,
@@ -59,6 +72,7 @@ export class CustomerList implements OnInit {
     private cdr: ChangeDetectorRef,
     private dialog: MatDialog
   ) {
+
     this.customerForm = this.fb.group({
       name: ['', Validators.required],
       email: ['', Validators.required],
@@ -78,7 +92,6 @@ export class CustomerList implements OnInit {
 
     this.searchControl.valueChanges.subscribe(value => {
       const term = value?.toLowerCase() ?? '';
-
       this.filteredCustomers = this.customers.filter(c =>
         c.name.toLowerCase().includes(term)
       );
@@ -95,13 +108,17 @@ export class CustomerList implements OnInit {
         this.customers = res.data;
         this.filteredCustomers = [...this.customers];
         this.loading = false;
-        this.cdr.markForCheck();
       },
       error: () => {
         this.errorMsg = 'Error loading customers';
         this.loading = false;
-        this.cdr.markForCheck();
       }
+    });
+  }
+
+  loadRestaurants(): void {
+    this.restaurantService.getRestaurants().subscribe((res: any) => {
+      this.restaurants = Array.isArray(res) ? res : res.data;
     });
   }
 
@@ -127,6 +144,14 @@ export class CustomerList implements OnInit {
     this.api.deleteCustomer(id).subscribe(() => this.load());
   }
 
+  confirmDelete(id: string, name?: string): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, { data: name });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) this.delete(id);
+    });
+  }
+
   edit(customer: ICustomer): void {
     this.showForm = true;
     this.editting = true;
@@ -147,45 +172,19 @@ export class CustomerList implements OnInit {
   }
 
   toggleShowForm(): void {
-    if (this.editting) {
-      this.showForm = true;
-      this.editting = false;
+    this.showForm = !this.showForm;
+    this.editting = false;
+    this.customerForm.reset();
+  }
 
-      this.customerForm.patchValue({
-        name: '',
-        email: '',
-        password: ''
-      });
-    } else {
-      this.showForm = !this.showForm;
-    }
+  get visibleCustomers(): ICustomer[] {
+    return this.showAllCustomers
+      ? this.filteredCustomers
+      : this.filteredCustomers.slice(0, this.limit);
   }
 
   showMore(): void {
     this.showAllCustomers = true;
-  }
-
-  get visibleCustomers(): ICustomer[] {
-    if (this.showAllCustomers) {
-      return this.filteredCustomers;
-    }
-    return this.filteredCustomers.slice(0, this.limit);
-  }
-
-  // ========================
-  // RESTAURANTS
-  // ========================
-
-  loadRestaurants(): void {
-    this.restaurantService.getRestaurants().subscribe({
-      next: (res: any) => {
-        this.restaurants = res.data ?? res;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error loading restaurants', err);
-      }
-    });
   }
 
   // ========================
@@ -195,21 +194,51 @@ export class CustomerList implements OnInit {
   toggleExpand(id: string): void {
     this.expanded[id] = !this.expanded[id];
 
-    if (this.expanded[id] && !this.reviewsByCustomer[id]) {
+    if (this.expanded[id]) {
+      this.reviewPage[id] = 0;
       this.loadReviews(id);
     }
   }
 
-  loadReviews(customerId: string): void {
-    this.reviewService.getByCustomer(customerId).subscribe({
-      next: (reviews) => {
-        this.reviewsByCustomer[customerId] = reviews;
-        this.cdr.markForCheck();
-      },
-      error: (err) => {
-        console.error('Error loading reviews', err);
-      }
-    });
+loadReviews(customerId: string): void {
+  const page = this.reviewPage[customerId] || 0;
+  const skip = page * this.reviewLimit;
+
+  this.reviewService.getByCustomer(
+    customerId,
+    this.reviewLimit,
+    skip,
+    this.minRatingFilter || undefined,
+    this.sortByLikes
+  ).subscribe((res: any) => {
+
+    const reviews = Array.isArray(res) ? res : res.data;
+
+    // 🔥 FIX CLAVE
+    this.reviewsByCustomer = {
+      ...this.reviewsByCustomer,
+      [customerId]: reviews || []
+    };
+
+    this.reviewTotal[customerId] = reviews?.length || 0;
+
+  });
+}
+  nextPage(customerId: string): void {
+    const page = this.reviewPage[customerId] || 0;
+    const total = this.reviewTotal[customerId] || 0;
+
+    if ((page + 1) * this.reviewLimit >= total) return;
+
+    this.reviewPage[customerId] = page + 1;
+    this.loadReviews(customerId);
+  }
+
+  prevPage(customerId: string): void {
+    if ((this.reviewPage[customerId] || 0) === 0) return;
+
+    this.reviewPage[customerId]--;
+    this.loadReviews(customerId);
   }
 
   openReviewForm(customerId: string): void {
@@ -217,95 +246,71 @@ export class CustomerList implements OnInit {
     this.editingReviewId = null;
     this.reviewForm.reset();
   }
-editReview(review: IReview): void {
-  console.log('editReview', review);
 
-  // 🔥 NORMALIZAR customer_id
-  const customerId =
-    typeof review.customer_id === 'string'
-      ? review.customer_id
-      : review.customer_id._id;
+  editReview(review: IReview): void {
+    const customerId =
+      typeof review.customer_id === 'string'
+        ? review.customer_id
+        : review.customer_id._id;
 
-  this.selectedCustomerId = customerId;
-  this.editingReviewId = review._id!;
+    this.selectedCustomerId = customerId;
+    this.editingReviewId = review._id!;
+    this.expanded[customerId] = true;
 
-  this.expanded[customerId] = true;
+    this.reviewForm.patchValue({
+      restaurant_id: review.restaurant_id._id,
+      rating: review.rating,
+      comment: review.comment ?? ''
+    });
+  }
 
-  this.reviewForm.reset();
+  createReview(): void {
+    if (this.reviewForm.invalid || !this.selectedCustomerId) return;
 
-  this.reviewForm.patchValue({
-    restaurant_id: review.restaurant_id._id,
-    rating: review.rating,
-    comment: review.comment ?? ''
-  });
+    // UPDATE
+    if (this.editingReviewId) {
+      const data = {
+        rating: this.reviewForm.value.rating,
+        comment: this.reviewForm.value.comment
+      };
 
-  this.cdr.markForCheck();
-}
+      this.reviewService.update(this.editingReviewId, data)
+        .subscribe(() => this.finishReviewAction());
 
-createReview(): void {
-  if (this.reviewForm.invalid || !this.selectedCustomerId) return;
+      return;
+    }
 
-  let data: any;
+    // CREATE
+    const restaurantId = this.reviewForm.value.restaurant_id;
 
-  if (this.editingReviewId) {
-    // ✏️ UPDATE
-    data = {
-      rating: this.reviewForm.value.rating,
-      comment: this.reviewForm.value.comment
+    const exists = this.reviewsByCustomer[this.selectedCustomerId]?.find(
+      r => r.restaurant_id._id === restaurantId
+    );
+
+    if (exists) {
+      alert('Already reviewed');
+      return;
+    }
+
+    const data = {
+      ...this.reviewForm.value,
+      customer_id: this.selectedCustomerId,
+      date: new Date()
     };
 
-    this.reviewService.update(this.editingReviewId, data).subscribe({
-      next: () => {
-        this.finishReviewAction();
-      },
-      error: (err) => {
-        console.error('Error updating review', err);
-      }
-    });
-
-    return;
+    this.reviewService.create(data)
+      .subscribe(() => this.finishReviewAction());
   }
 
-  // ➕ CREATE
-  const restaurantId = this.reviewForm.value.restaurant_id;
+  finishReviewAction(): void {
+    const id = this.selectedCustomerId;
 
-  const existing = this.reviewsByCustomer[this.selectedCustomerId]?.find(
-    r => r.restaurant_id._id === restaurantId
-  );
+    this.reviewForm.reset();
+    this.selectedCustomerId = null;
+    this.editingReviewId = null;
 
-  if (existing) {
-    alert('You already reviewed this restaurant');
-    return;
+    if (id) this.loadReviews(id);
   }
-
-  data = {
-    ...this.reviewForm.value,
-    customer_id: this.selectedCustomerId,
-    date: new Date()
-  };
-
-  this.reviewService.create(data).subscribe({
-    next: () => {
-      this.finishReviewAction();
-    },
-    error: (err) => {
-      console.error('Error creating review', err);
-    }
-  });
-}
-finishReviewAction(): void {
-  const customerId = this.selectedCustomerId;
-
-  this.reviewForm.reset();
-  this.selectedCustomerId = null;
-  this.editingReviewId = null;
-
-  if (customerId) {
-    this.loadReviews(customerId);
-  }
-
-  this.cdr.markForCheck();
-}
 
   deleteReview(reviewId: string, customerId: string): void {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
@@ -314,40 +319,18 @@ finishReviewAction(): void {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        this.reviewService.delete(reviewId).subscribe({
-          next: () => {
-            this.loadReviews(customerId);
-          },
-          error: (err) => {
-            console.error('Error deleting review', err);
-          }
-        });
+        this.reviewService.delete(reviewId)
+          .subscribe(() => this.loadReviews(customerId));
       }
     });
   }
 
   like(review: IReview): void {
-    this.reviewService.like(review._id!).subscribe({
-      next: (updated) => {
-        review.likes = updated.likes;
-      },
-      error: (err) => {
-        console.error('Error liking review', err);
-      }
-    });
+    this.reviewService.like(review._id!)
+      .subscribe(updated => review.likes = updated.likes);
   }
 
   getStars(rating: number): number[] {
     return Array(Math.round(rating / 2)).fill(0);
-  }
-
-  // ========================
-
-  confirmDelete(id: string, name?: string): void {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, { data: name });
-
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) this.delete(id);
-    });
   }
 }

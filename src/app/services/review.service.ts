@@ -12,31 +12,76 @@ export class ReviewService {
 
   constructor(private http: HttpClient) {}
 
+  // ========================
+  // GET ALL
+  // ========================
   getAll(): Observable<IReview[]> {
     return this.http.get<IReview[]>(this.baseUrl);
   }
 
+  // ========================
+  // GET BY RESTAURANT
+  // ========================
   getByRestaurant(restaurantId: string): Observable<IReview[]> {
-    return this.http.get<IReview[]>(`${this.baseUrl}/restaurant/${restaurantId}`);
+    return this.http.get<IReview[]>(
+      `${this.baseUrl}/restaurant/${restaurantId}`
+    );
   }
 
-  getByCustomer(customerId: string): Observable<IReview[]> {
-    return this.http.get<IReview[]>(`${this.baseUrl}/customer/${customerId}`);
-  }
+  // ========================
+  // GET BY CUSTOMER 
+  // ========================
+ getByCustomer(
+  customerId: string,
+  limit = 5,
+  skip = 0,
+  minRating?: number,
+  sortByLikes?: boolean
+) {
+  let url = `${this.baseUrl}/customer/${customerId}?limit=${limit}&skip=${skip}`;
 
+  if (minRating) url += `&minRating=${minRating}`;
+  if (sortByLikes) url += `&sortByLikes=true`;
+
+  return this.http.get<{ data: IReview[]; total: number }>(url);
+}
+
+  // ========================
+  // CREATE
+  // ========================
   create(review: Partial<IReview>): Observable<IReview> {
     return this.http.post<IReview>(this.baseUrl, review);
   }
 
-  update(reviewId: string, review: Partial<IReview>): Observable<IReview> {
-    return this.http.put<IReview>(`${this.baseUrl}/${reviewId}`, review);
+  // ========================
+  // UPDATE
+  // ========================
+  update(
+    reviewId: string,
+    review: Partial<IReview>
+  ): Observable<IReview> {
+    return this.http.put<IReview>(
+      `${this.baseUrl}/${reviewId}`,
+      review
+    );
   }
 
-  delete(reviewId: string): Observable<{ message: string }> {
-    return this.http.delete<{ message: string }>(`${this.baseUrl}/${reviewId}`);
+  // ========================
+  // DELETE
+  // ========================
+  delete(reviewId: string): Observable<IReview> {
+    return this.http.delete<IReview>(
+      `${this.baseUrl}/${reviewId}`
+    );
   }
 
+  // ========================
+  // LIKE
+  // ========================
   like(reviewId: string): Observable<IReview> {
-    return this.http.post<IReview>(`${this.baseUrl}/${reviewId}/like`, {});
+    return this.http.post<IReview>(
+      `${this.baseUrl}/${reviewId}/like`,
+      {}
+    );
   }
 }
