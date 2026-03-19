@@ -1,12 +1,13 @@
 <header class="topbar">
   <div class="brand">
-    <span class="logo">mini-spa</span>
+    <span class="brand-title">EasyEat</span>
   </div>
 
   <nav class="nav">
     <a
       routerLink="/"
       routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
     >
       Restaurants
     </a>

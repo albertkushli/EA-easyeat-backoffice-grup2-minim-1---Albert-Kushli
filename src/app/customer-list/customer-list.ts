@@ -238,7 +238,7 @@ loadReviews(customerId: string): void {
       [customerId]: reviews
     };
 
-    // 🔥 FIX REAL
+    //  FIX REAL
     this.reviewTotal[customerId] = res?.total ?? 0;
 
     this.cdr.detectChanges();
