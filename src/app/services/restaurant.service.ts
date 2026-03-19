@@ -34,7 +34,7 @@ export class RestaurantService {
 
   deleteRestaurant(restaurantId: string): Observable<IRestaurant> {
     return this.http.delete<IRestaurant>(
-      `${this.baseUrl}/restaurants/${restaurantId}`
+      `${this.baseUrl}/restaurants/${restaurantId}/soft`
     );
   }
 

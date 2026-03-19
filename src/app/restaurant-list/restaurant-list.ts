@@ -46,8 +46,8 @@ export class RestaurantList implements OnInit {
 
   constructor(private api: RestaurantService, private rewardApi: RewardService, private visitApi: VisitService, private fb: FormBuilder, private cdr: ChangeDetectorRef, private dialog: MatDialog) {
     this.restaurantForm = this.fb.group({
-      name: ['', Validators.required],
-      description: ['', Validators.required],
+      name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(120)]],
+      description: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(2000)]],
       categoryItalià: [false],
       categoryJaponès: [false],
       categorySushi: [false],
@@ -83,7 +83,7 @@ export class RestaurantList implements OnInit {
       categoryBar: [false],
       categoryTaperia: [false],
       categoryGelateria: [false],
-      categoryEstellaMichelin: [false],
+      categoryEstrellaMichelin: [false],
       categoryStreetFood: [false],
       rating: [0, [Validators.pattern('^[0-5]+(\\.[0-9]+)?$'), Validators.min(0), Validators.max(5)]],
       monday: ['',    [Validators.pattern('(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d(?:,(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d)*')]],
@@ -99,9 +99,9 @@ export class RestaurantList implements OnInit {
       city: ['', Validators.required],
       address: [''],
       googlePlaceId: [''],
-      type: [''], //Coordinates type
-      lat: [''],
-      lon: [''],
+      type: ['', Validators.required], //Coordinates type
+      lon: ['', Validators.required],
+      lat: ['', Validators.required],
       employees: [''],
       dishes: [''],
       statistics: [''],
@@ -338,6 +338,8 @@ export class RestaurantList implements OnInit {
     if (this.restaurantForm.value.categoryEstellaMichelin) category = [...(category || []), 'Estella Michelin'];
     if (this.restaurantForm.value.categoryStreetFood) category = [...(category || []), 'Street Food'];
 
+    if (!category || category.length === 0 || category === undefined) return;
+
     const newRestaurant: Partial<IRestaurant> = {
       profile: {
         timetable: {
@@ -350,25 +352,26 @@ export class RestaurantList implements OnInit {
           sunday: sunday,
         },
         contact: {
-          phone: this.restaurantForm.value.phone,
-          email: this.restaurantForm.value.email ? this.restaurantForm.value.email : undefined,
+          phone: this.restaurantForm.value.phone === '' ? undefined : this.restaurantForm.value.phone,
+          email: this.restaurantForm.value.email === '' ? undefined : this.restaurantForm.value.email,
         },
         location: {
           coordinates: {
-            type: this.restaurantForm.value.type,
+            type: this.restaurantForm.value.type === '' ? undefined : this.restaurantForm.value.type,
             coordinates: [
-              this.restaurantForm.value.lon,
-              this.restaurantForm.value.lat
-            ]
+              this.restaurantForm.value.lon === '' ? undefined : this.restaurantForm.value.lon,
+              this.restaurantForm.value.lat === '' ? undefined : this.restaurantForm.value.lat
+            ],
           },
-          city: this.restaurantForm.value.city,
-          address: this.restaurantForm.value.address
+          city: this.restaurantForm.value.city === '' ? undefined : this.restaurantForm.value.city,
+          address: this.restaurantForm.value.address === '' ? undefined : this.restaurantForm.value.address,
+          googlePlaceId: this.restaurantForm.value.googlePlaceId === '' ? undefined : this.restaurantForm.value.googlePlaceId,
         },
         name: this.restaurantForm.value.name,
         description: this.restaurantForm.value.description,
         rating: this.restaurantForm.value.rating,
         category: category,
-        image: this.restaurantForm.value.imageUrl.split(',').map((slot: string) => {
+        image: this.restaurantForm.value.imageUrl === '' ? undefined : this.restaurantForm.value.imageUrl.split(',').map((slot: string) => {
           return slot;
         }),
       },

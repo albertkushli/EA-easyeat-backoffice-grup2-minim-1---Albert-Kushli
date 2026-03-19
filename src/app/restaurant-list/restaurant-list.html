@@ -29,11 +29,23 @@
       <div>
         <label>*Name: </label>
         <input type="text" formControlName="name"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('name')?.hasError('minlength') && restaurantForm.get('name')?.touched">
+          Name is too short.
+        </small>
+        <small style="color: red;" *ngIf="restaurantForm.get('name')?.hasError('maxlength') && restaurantForm.get('name')?.touched">
+          Name is too long.
+        </small>
       </div>
 
       <div>
         <label>*Description: </label>
         <input type="text" formControlName="description"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('description')?.hasError('minlength') && restaurantForm.get('description')?.touched">
+          Description is too short.
+        </small>
+        <small style="color: red;" *ngIf="restaurantForm.get('description')?.hasError('maxlength') && restaurantForm.get('description')?.touched">
+          Description is too long.
+        </small>
       </div>
 
       <div>
@@ -47,80 +59,81 @@
         </small>
       </div>
 
+      <p>*Category (at least one obligatory)</p>
       <div>
-        <label>Italià: </label>
+        <label>Italià:</label>
         <input type="checkbox" formControlName="categoryItalià"/>
-        <label>Japonès: </label> 
+        <label> Japonès:</label> 
         <input type="checkbox" formControlName="categoryJaponès"/>
-        <label>Sushi: </label> 
+        <label> Sushi:</label> 
         <input type="checkbox" formControlName="categorySushi"/>
-        <label>Mexicà: </label> 
+        <label> Mexicà:</label> 
         <input type="checkbox" formControlName="categoryMexicà"/>
-        <label>Xinès: </label> 
+        <label> Xinès:</label> 
         <input type="checkbox" formControlName="categoryXinès"/>
-        <label>Indi: </label> 
+        <label> Indi:</label> 
         <input type="checkbox" formControlName="categoryIndi"/>
-        <label>Tailandès: </label> 
+        <label> Tailandès:</label> 
         <input type="checkbox" formControlName="categoryTailandès"/>
-        <label>Francès: </label> 
+        <label> Francès:</label> 
         <input type="checkbox" formControlName="categoryFrancès"/>
-        <label>Espanyol: </label> 
+        <label> Espanyol:</label> 
         <input type="checkbox" formControlName="categoryEspanyol"/>
-        <label>Grec: </label> 
+        <label> Grec:</label> 
         <input type="checkbox" formControlName="categoryGrec"/>
-        <label>Turc: </label> 
+        <label> Turc:</label> 
         <input type="checkbox" formControlName="categoryTurc"/>
-        <label>Coreà: </label> 
+        <label> Coreà:</label> 
         <input type="checkbox" formControlName="categoryCoreà"/>
-        <label>Vietnamita: </label> 
+        <label> Vietnamita:</label> 
         <input type="checkbox" formControlName="categoryVietnamita"/>
-        <label>Alemany: </label> 
+        <label> Alemany:</label> 
         <input type="checkbox" formControlName="categoryAlemany"/>
-        <label>Brasileny: </label> 
+        <label> Brasileny:</label> 
         <input type="checkbox" formControlName="categoryBrasileny"/>
-        <label>Peruà: </label> 
+        <label> Peruà:</label> 
         <input type="checkbox" formControlName="categoryPeruà"/>
-        <label>Vegà: </label> 
+        <label> Vegà:</label> 
         <input type="checkbox" formControlName="categoryVegà"/>
-        <label>Vegetarià: </label> 
+        <label> Vegetarià:</label> 
         <input type="checkbox" formControlName="categoryVegetarià"/>
-        <label>Marisc: </label> 
+        <label> Marisc:</label> 
         <input type="checkbox" formControlName="categoryMarisc"/>
-        <label>Carn: </label> 
+        <label> Carn:</label> 
         <input type="checkbox" formControlName="categoryCarn"/>
-        <label>Pizzeria: </label> 
+        <label> Pizzeria:</label> 
         <input type="checkbox" formControlName="categoryPizzeria"/>
-        <label>Cafeteria: </label> 
+        <label> Cafeteria:</label> 
         <input type="checkbox" formControlName="categoryCafeteria"/>
-        <label>Ramen: </label> 
+        <label> Ramen:</label> 
         <input type="checkbox" formControlName="categoryRamen"/>
-        <label>Gluten Free: </label> 
+        <label> Gluten Free:</label> 
         <input type="checkbox" formControlName="categoryGlutenFree"/>
-        <label>Gourmet: </label> 
+        <label> Gourmet:</label> 
         <input type="checkbox" formControlName="categoryGourmet"/>
-        <label>Fast Food: </label> 
+        <label> Fast Food:</label> 
         <input type="checkbox" formControlName="categoryFastFood"/>
-        <label>Buffet: </label> 
+        <label> Buffet:</label> 
         <input type="checkbox" formControlName="categoryBuffet"/>
-        <label>Food Truck: </label> 
+        <label> Food Truck:</label> 
         <input type="checkbox" formControlName="categoryFoodTruck"/>
-        <label>Lounge: </label> 
+        <label> Lounge:</label> 
         <input type="checkbox" formControlName="categoryLounge"/>
-        <label>Pub: </label> 
+        <label> Pub:</label> 
         <input type="checkbox" formControlName="categoryPub"/>
-        <label>Wine Bar: </label> 
+        <label> Wine Bar:</label> 
         <input type="checkbox" formControlName="categoryWineBar"/>
-        <label>Rooftop: </label> 
+        <label> Rooftop:</label> 
         <input type="checkbox" formControlName="categoryRooftop"/>
-        <label>Bar: </label> 
+        <label> Bar:</label> 
         <input type="checkbox" formControlName="categoryBar"/>
-        <label>Taperia: </label> 
+        <label> Taperia:</label> 
         <input type="checkbox" formControlName="categoryTaperia"/>
-        <label>Gelateria: </label> 
+        <label> Gelateria:</label> 
         <input type="checkbox" formControlName="categoryGelateria"/>
-        <label>Estrella Michelin: </label> 
-        <input type="checkbox" formControlName="categoryEstellaMichelin"/>
-        <label>Street Food: </label> 
+        <label> Estrella Michelin:</label> 
+        <input type="checkbox" formControlName="categoryEstrellaMichelin"/>
+        <label> Street Food:</label> 
         <input type="checkbox" formControlName="categoryStreetFood"/>
       </div>
 
@@ -212,7 +225,7 @@
       </div>
 
       <div>
-        <label>Type: </label>
+        <label>*Type: </label>
         <select type="text" formControlName="type">
           <option value="" disabled selected>Select type</option>
           <option [value]="'Point'">Point</option>
@@ -220,13 +233,13 @@
       </div>
 
       <div>
-        <label>Latitude: </label>
-        <input type="text" formControlName="lat"/>
+        <label>*Longitude: </label>
+        <input type="number" formControlName="lon" step="0.0001" max="180" min="-180"/>
       </div>
 
       <div>
-        <label>Longitude: </label>
-        <input type="text" formControlName="lon"/>
+        <label>*Latitude: </label>
+        <input type="number" formControlName="lat" step="0.0001" max="90" min="-90"/>
       </div>
 
       <p></p>
