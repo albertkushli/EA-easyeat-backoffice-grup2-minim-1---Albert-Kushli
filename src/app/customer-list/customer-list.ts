@@ -28,7 +28,6 @@ import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
 })
 export class CustomerList implements OnInit {
 
-  // 🔥 FIX Math en template
   Math = Math;
 
   customers: ICustomer[] = [];
@@ -57,7 +56,7 @@ export class CustomerList implements OnInit {
   showAllCustomers = false;
   limit = 10;
 
-  reviewLimit = 3;
+  reviewLimit = 1;
   reviewPage: { [key: string]: number } = {};
   reviewTotal: { [key: string]: number } = {};
 
@@ -86,12 +85,16 @@ export class CustomerList implements OnInit {
     });
   }
 
+  // ========================
+  // INIT
+  // ========================
+
   ngOnInit(): void {
     this.load();
     this.loadRestaurants();
 
     this.searchControl.valueChanges.subscribe(value => {
-      const term = value?.toLowerCase() ?? '';
+      const term = value?.toLowerCase().trim() ?? '';
       this.filteredCustomers = this.customers.filter(c =>
         c.name.toLowerCase().includes(term)
       );
@@ -103,22 +106,41 @@ export class CustomerList implements OnInit {
   // ========================
 
   load(): void {
+    this.loading = true;
+    this.errorMsg = '';
+
     this.api.getCustomers().subscribe({
       next: (res: any) => {
-        this.customers = res.data;
-        this.filteredCustomers = [...this.customers];
+        const data = res?.data ?? res ?? [];
+
+        this.customers = data;
+        this.filteredCustomers = [...data];
+
         this.loading = false;
+        this.cdr.detectChanges(); // 🔥 CLAVE
       },
-      error: () => {
+      error: (err) => {
+        console.error(err);
         this.errorMsg = 'Error loading customers';
+        this.customers = [];
+        this.filteredCustomers = [];
         this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }
 
   loadRestaurants(): void {
-    this.restaurantService.getRestaurants().subscribe((res: any) => {
-      this.restaurants = Array.isArray(res) ? res : res.data;
+    this.restaurantService.getRestaurants().subscribe({
+      next: (res: any) => {
+        this.restaurants = res?.data ?? res ?? [];
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        this.restaurants = [];
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -127,17 +149,14 @@ export class CustomerList implements OnInit {
 
     const data = this.customerForm.value;
 
-    if (this.editting && this.customerEditId) {
-      this.api.updateCustomer(this.customerEditId, data).subscribe(() => {
-        this.load();
-        this.resetForm();
-      });
-    } else {
-      this.api.createCustomer(data).subscribe(() => {
-        this.load();
-        this.resetForm();
-      });
-    }
+    const request = this.editting && this.customerEditId
+      ? this.api.updateCustomer(this.customerEditId, data)
+      : this.api.createCustomer(data);
+
+    request.subscribe(() => {
+      this.load();
+      this.resetForm();
+    });
   }
 
   delete(id: string): void {
@@ -212,18 +231,20 @@ loadReviews(customerId: string): void {
     this.sortByLikes
   ).subscribe((res: any) => {
 
-    const reviews = Array.isArray(res) ? res : res.data;
+    const reviews = res?.data ?? [];
 
-    // 🔥 FIX CLAVE
     this.reviewsByCustomer = {
       ...this.reviewsByCustomer,
-      [customerId]: reviews || []
+      [customerId]: reviews
     };
 
-    this.reviewTotal[customerId] = reviews?.length || 0;
+    // 🔥 FIX REAL
+    this.reviewTotal[customerId] = res?.total ?? 0;
 
+    this.cdr.detectChanges();
   });
 }
+
   nextPage(customerId: string): void {
     const page = this.reviewPage[customerId] || 0;
     const total = this.reviewTotal[customerId] || 0;
@@ -267,7 +288,6 @@ loadReviews(customerId: string): void {
   createReview(): void {
     if (this.reviewForm.invalid || !this.selectedCustomerId) return;
 
-    // UPDATE
     if (this.editingReviewId) {
       const data = {
         rating: this.reviewForm.value.rating,
@@ -280,7 +300,6 @@ loadReviews(customerId: string): void {
       return;
     }
 
-    // CREATE
     const restaurantId = this.reviewForm.value.restaurant_id;
 
     const exists = this.reviewsByCustomer[this.selectedCustomerId]?.find(
