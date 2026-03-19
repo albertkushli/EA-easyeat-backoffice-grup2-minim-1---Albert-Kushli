@@ -1,0 +1,114 @@
+/* CONTENEDOR */
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+/* HEADER */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* INPUT */
+input {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+/* BOTONES */
+.btn {
+  background: #6366f1;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #4f46e5;
+}
+
+.btn.secondary {
+  background: #e5e7eb;
+  color: #333;
+}
+
+.btn.secondary:hover {
+  background: #d1d5db;
+}
+
+.btn.small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.delete-btn {
+  background: #ef4444;
+}
+
+/* CARD */
+.card {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* ROW */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TEXTO */
+.name {
+  font-weight: bold;
+  display: block;
+}
+
+.muted {
+  font-size: 12px;
+  color: gray;
+}
+
+/* FORM */
+.form-group {
+  margin-bottom: 10px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* DATOS */
+.data {
+  margin-top: 10px;
+  background: #f9fafb;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* MENSAJES */
+.info {
+  color: #6b7280;
+}
+
+.error {
+  color: red;
+}

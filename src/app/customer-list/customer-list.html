@@ -16,12 +16,12 @@
   <p>{{ errorMsg }}</p>
 }
 
-<button class="btn" (click)="toggleShowForm()" style="margin-bottom: 15px;">
+<button class="btn" type="button" (click)="toggleShowForm()" style="margin-bottom: 15px;">
   Add
 </button>
 
 @if (!loading && !errorMsg && customers.length > 0) {
-  <button class="btn" (click)="load()">Refresh</button>
+  <button class="btn" type="button" (click)="load()">Refresh</button>
 }
 
 @if (showForm) {
@@ -46,14 +46,11 @@
         <input type="text" formControlName="password" />
       </div>
 
-      <button
-        type="submit"
-        class="btn"
-        [disabled]="customerForm.invalid">
+      <button class="btn" type="submit" [disabled]="customerForm.invalid">
         {{ editting ? 'Update' : 'Save' }}
       </button>
 
-      <button class="btn" type="reset" (click)="toggleShowForm()">
+      <button class="btn" type="button" (click)="toggleShowForm()">
         Cancel
       </button>
 
@@ -70,8 +67,8 @@
 
       <li class="card">
 
+        <!-- HEADER -->
         <div>
-
           <span class="name">
             {{
               expanded[customer._id!] || customer.name.length <= 30
@@ -80,36 +77,129 @@
             }}
           </span>
 
-          <button
-            class="btn"
-            (click)="toggleExpand(customer._id!)">
+          <button class="btn" type="button" (click)="toggleExpand(customer._id!)">
             {{ expanded[customer._id!] ? 'Show less' : 'Show more' }}
           </button>
-
         </div>
 
+        <!-- ACTIONS -->
         <div>
-
           <span class="muted">{{ customer._id }}</span>
 
-          <button
-            class="btn"
-            (click)="edit(customer)">
+          <button class="btn" type="button" (click)="edit(customer)">
             Edit
           </button>
 
           <button
             class="btn delete-btn"
+            type="button"
             (click)="confirmDelete(customer._id!, customer.name)">
             X
           </button>
 
+          <button class="btn" type="button" (click)="openReviewForm(customer._id!)">
+            ➕ Review
+          </button>
         </div>
 
+        <!-- INFO -->
         @if (expanded[customer._id!]) {
           <div class="data">
             <p>Email: {{ customer.email }}</p>
-            <p>id: {{ customer._id }}</p>
+            <p>ID: {{ customer._id }}</p>
+          </div>
+        }
+
+        <!-- REVIEW FORM -->
+        @if (selectedCustomerId === customer._id) {
+          <div class="card" style="margin-top:10px;">
+
+            <h4>{{ editingReviewId ? 'Edit Review' : 'New Review' }}</h4>
+
+            <form [formGroup]="reviewForm" (ngSubmit)="createReview()">
+
+              <div>
+                <label>Restaurant:</label>
+                <select formControlName="restaurant_id">
+                  <option value="">Select a restaurant</option>
+                  @for (restaurant of restaurants; track restaurant._id) {
+                    <option [value]="restaurant._id">
+                      {{ restaurant.profile?.name }}
+                    </option>
+                  }
+                </select>
+              </div>
+
+              <div>
+                <label>Rating (1-10):</label>
+                <input type="number" min="1" max="10" formControlName="rating" />
+              </div>
+
+              <div>
+                <label>Comment:</label>
+                <textarea formControlName="comment"></textarea>
+              </div>
+
+              <button class="btn" type="submit" [disabled]="reviewForm.invalid">
+                {{ editingReviewId ? 'Update Review' : 'Save Review' }}
+              </button>
+
+              <button class="btn" type="button" (click)="finishReviewAction()">
+                Cancel
+              </button>
+
+            </form>
+
+          </div>
+        }
+
+        <!-- REVIEWS -->
+        @if (expanded[customer._id!]) {
+          <div class="card" style="margin-top:10px;">
+
+            <h4>Reviews</h4>
+
+            @if (reviewsByCustomer[customer._id!]?.length) {
+
+              @for (review of reviewsByCustomer[customer._id!]; track review._id) {
+
+                <div style="border-bottom:1px solid #ccc; margin-bottom:8px; padding-bottom:8px;">
+
+                  <p style="font-weight:bold; font-size:16px;">
+                    🍜 {{ review.restaurant_id.name }}
+                  </p>
+
+                  <p>⭐ {{ review.rating }}/10</p>
+
+                  <p>{{ review.comment }}</p>
+
+                  <button class="btn" type="button" (click)="like(review)">
+                    👍 {{ review.likes || 0 }}
+                  </button>
+
+                  <div style="margin-top:5px;">
+
+                    <button class="btn" type="button" (click)="editReview(review)">
+                      ✏️ Edit
+                    </button>
+
+                    <button
+                      class="btn delete-btn"
+                      type="button"
+                      (click)="deleteReview(review._id!, customer._id!)">
+                      🗑 Delete
+                    </button>
+
+                  </div>
+
+                </div>
+
+              }
+
+            } @else {
+              <p>No reviews yet</p>
+            }
+
           </div>
         }
 
@@ -122,13 +212,13 @@
 }
 
 @if (!showAllCustomers && customers.length > limit) {
-  <button class="btn" (click)="showMore()">
+  <button class="btn" type="button" (click)="showMore()">
     Show more
   </button>
 }
 
 @if (showAllCustomers) {
-  <button class="btn" (click)="showAllCustomers = false">
+  <button class="btn" type="button" (click)="showAllCustomers = false">
     Show less
   </button>
 }
@@ -137,6 +227,6 @@
   <p>No customers.</p>
 }
 
-<button class="btn" (click)="load()">
+<button class="btn" type="button" (click)="load()">
   Refresh
 </button>
