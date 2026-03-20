@@ -1,61 +1,94 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CustomerService } from '../services/customer.service';
-import { VisitService } from '../services/visit.service'; 
-import { ICustomer } from '../models/customer.model';
-import { IVisit } from '../models/visit.model'; 
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
+import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+
+import { CustomerService } from '../services/customer.service';
+import { ReviewService } from '../services/review.service';
+import { RestaurantService } from '../services/restaurant.service';
+import { VisitService } from '../services/visit.service';
+
+import { ICustomer } from '../models/customer.model';
+import { IReview } from '../models/review.model';
+import { IRestaurant } from '../models/restaurant.model';
+import { IVisit } from '../models/visit.model';
+
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
 
 @Component({
   selector: 'app-customer-list',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, MatDialogModule],
   templateUrl: './customer-list.html',
 })
 export class CustomerList implements OnInit {
-  filteredCustomers: ICustomer[] = [];
+
+  Math = Math;
+
+  // ========================
+  // CUSTOMERS
+  // ========================
   customers: ICustomer[] = [];
+  filteredCustomers: ICustomer[] = [];
+  customerEditId?: string;
   loading = true;
   errorMsg = '';
   searchControl = new FormControl('');
-  
   customerForm!: FormGroup;
   editting = false;
   showForm = false;
-  customerEditId: string | undefined;
-
+  showAllCustomers = false;
+  limit = 10;
   expanded: { [key: string]: boolean } = {};
+
+  // ========================
+  // REVIEWS
+  // ========================
+  reviewsByCustomer: { [key: string]: IReview[] } = {};
+  restaurants: IRestaurant[] = [];
+  reviewForm!: FormGroup;
+  selectedCustomerId: string | null = null;
+  editingReviewId: string | null = null;
+  reviewLimit = 1;
+  reviewPage: { [key: string]: number } = {};
+  reviewTotal: { [key: string]: number } = {};
+  minRatingFilter: number | null = null;
+  sortByLikes = false;
+
+  // ========================
+  // VISITS
+  // ========================
   customerVisits: { [key: string]: IVisit[] } = {};
   loadingVisits: { [key: string]: boolean } = {};
-  
   visitForm!: FormGroup;
   activeVisitForm = false;
   isEditingVisit = false;
   currentCustomerId: string | null = null;
   selectedVisitId: string | null = null;
-
-  // Propiedades de paginación corregidas
-  currentPage: number = 1;
-  pageSize: number = 5; 
-  totalPages: number = 1;
-  totalItems: number = 0;
-
-  showAllCustomers = false;
-  limit = 10;
+  visitCurrentPage: number = 1;
+  visitPageSize: number = 5;
+  visitTotalPages: number = 1;
+  visitTotalItems: number = 0;
 
   constructor(
-    private api: CustomerService, 
-    private visitService: VisitService, 
-    private fb: FormBuilder, 
-    private cdr: ChangeDetectorRef, 
+    private api: CustomerService,
+    private reviewService: ReviewService,
+    private restaurantService: RestaurantService,
+    private visitService: VisitService,
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef,
     private dialog: MatDialog
   ) {
     this.customerForm = this.fb.group({
       name: ['', Validators.required],
-      email: ['', Validators.required],
-      password: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.pattern(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/)]],
+    });
+
+    this.reviewForm = this.fb.group({
+      restaurant_id: ['', Validators.required],
+      rating: [null, [Validators.required, Validators.min(1), Validators.max(10)]],
+      comment: ['']
     });
 
     this.visitForm = this.fb.group({
@@ -66,80 +99,329 @@ export class CustomerList implements OnInit {
     });
   }
 
+  // ========================
+  // INIT
+  // ========================
+
   ngOnInit(): void {
     this.load();
+    this.loadRestaurants();
 
     this.searchControl.valueChanges.subscribe(value => {
-      this.currentPage = 1; // Resetear página al buscar
-      const term = value?.toLowerCase() ?? '';
-      this.filteredCustomers = this.customers.filter(customer =>
-        customer.name.toLowerCase().includes(term)
+      const term = value?.toLowerCase().trim() ?? '';
+      this.filteredCustomers = this.customers.filter(c =>
+        c.name.toLowerCase().includes(term)
       );
     });
   }
 
+  // ========================
+  // CUSTOMERS
+  // ========================
+
   load(): void {
     this.loading = true;
     this.errorMsg = '';
-    // Si tu CustomerService también tiene paginación, pasa los parámetros aquí
+
     this.api.getCustomers().subscribe({
       next: (res: any) => {
-        // Manejo flexible de respuesta (array u objeto con data)
-        this.customers = res.data || res; 
-        this.filteredCustomers = [...this.customers];
+        const data = res?.data ?? res ?? [];
+        this.customers = data;
+        this.filteredCustomers = [...data];
         this.loading = false;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
       },
-      error: () => {
-        this.errorMsg = 'Could not load customers.';
+      error: (err) => {
+        console.error(err);
+        this.errorMsg = 'Error loading customers';
+        this.customers = [];
+        this.filteredCustomers = [];
         this.loading = false;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  guardar(): void {
+    if (this.customerForm.invalid) return;
+
+    const data = this.customerForm.value;
+
+    const request = this.editting && this.customerEditId
+      ? this.api.updateCustomer(this.customerEditId, data)
+      : this.api.createCustomer(data);
+
+    request.subscribe(() => {
+      this.load();
+      this.resetForm();
+    });
+  }
+
+  delete(id: string): void {
+    this.api.deleteCustomer(id).subscribe(() => this.load());
+  }
+
+  confirmDelete(id: string, name?: string): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, { data: name });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) this.delete(id);
+    });
+  }
+
+  edit(customer: ICustomer): void {
+    this.showForm = true;
+    this.editting = true;
+    this.customerEditId = customer._id;
+    this.customerForm.patchValue({
+      name: customer.name,
+      email: customer.email,
+      password: ''
+    });
+  }
+
+  resetForm(): void {
+    this.showForm = false;
+    this.editting = false;
+    this.customerEditId = undefined;
+    this.customerForm.reset();
+  }
+
+  toggleShowForm(): void {
+    this.showForm = !this.showForm;
+    this.editting = false;
+    this.customerForm.reset();
+  }
+
+  get visibleCustomers(): ICustomer[] {
+    return this.showAllCustomers
+      ? this.filteredCustomers
+      : this.filteredCustomers.slice(0, this.limit);
+  }
+
+  showMore(): void {
+    this.showAllCustomers = true;
+  }
+
+  // ========================
+  // REVIEWS
+  // ========================
+
+  loadRestaurants(): void {
+    this.restaurantService.getRestaurants().subscribe({
+      next: (res: any) => {
+        this.restaurants = res?.data ?? res ?? [];
+        this.cdr.detectChanges();
       },
+      error: (err) => {
+        console.error(err);
+        this.restaurants = [];
+        this.cdr.detectChanges();
+      }
     });
   }
 
   toggleExpand(id: string): void {
-    this.expanded[id] = !this.expanded[id];
-    if (this.expanded[id]) {
-      this.loadVisits(id);
-    }
+  this.expanded[id] = !this.expanded[id];
+
+  if (this.expanded[id]) {
+    this.reviewPage[id] = 0;
+    this.visitCurrentPage = 1;
+    this.loadReviews(id);
+    this.loadVisits(id);
+   }
+}
+
+  loadReviews(customerId: string): void {
+    const page = this.reviewPage[customerId] || 0;
+    const skip = page * this.reviewLimit;
+
+    this.reviewService.getByCustomer(
+      customerId,
+      this.reviewLimit,
+      skip,
+      this.minRatingFilter || undefined,
+      this.sortByLikes
+    ).subscribe((res: any) => {
+      this.reviewsByCustomer = {
+        ...this.reviewsByCustomer,
+        [customerId]: res?.data ?? []
+      };
+      this.reviewTotal[customerId] = res?.total ?? 0;
+      this.cdr.detectChanges();
+    });
   }
 
-  changePage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage = page;
-      // Si la paginación es de visitas, recargamos la visita del cliente activo
+  nextPage(customerId: string): void {
+    const page = this.reviewPage[customerId] || 0;
+    const total = this.reviewTotal[customerId] || 0;
+    if ((page + 1) * this.reviewLimit >= total) return;
+    this.reviewPage[customerId] = page + 1;
+    this.loadReviews(customerId);
+  }
+
+  prevPage(customerId: string): void {
+    if ((this.reviewPage[customerId] || 0) === 0) return;
+    this.reviewPage[customerId]--;
+    this.loadReviews(customerId);
+  }
+
+  openReviewForm(customerId: string): void {
+    this.selectedCustomerId = customerId;
+    this.editingReviewId = null;
+    this.reviewForm.reset();
+  }
+
+  editReview(review: IReview): void {
+    const customerId = typeof review.customer_id === 'string'
+      ? review.customer_id
+      : review.customer_id._id;
+
+    this.selectedCustomerId = customerId;
+    this.editingReviewId = review._id!;
+    this.expanded[customerId] = true;
+
+    this.reviewForm.patchValue({
+      restaurant_id: review.restaurant_id._id,
+      rating: review.rating,
+      comment: review.comment ?? ''
+    });
+  }
+
+  createReview(): void {
+    if (this.reviewForm.invalid || !this.selectedCustomerId) return;
+
+    if (this.editingReviewId) {
+      const data = {
+        rating: this.reviewForm.value.rating,
+        comment: this.reviewForm.value.comment
+      };
+      this.reviewService.update(this.editingReviewId, data)
+        .subscribe(() => this.finishReviewAction());
+      return;
+    }
+
+    const restaurantId = this.reviewForm.value.restaurant_id;
+    const exists = this.reviewsByCustomer[this.selectedCustomerId]?.find(
+      r => r.restaurant_id._id === restaurantId
+    );
+
+    if (exists) {
+      alert('Already reviewed');
+      return;
+    }
+
+    const data = {
+      ...this.reviewForm.value,
+      customer_id: this.selectedCustomerId,
+      date: new Date()
+    };
+
+    this.reviewService.create(data)
+      .subscribe(() => this.finishReviewAction());
+  }
+
+  finishReviewAction(): void {
+    const id = this.selectedCustomerId;
+    this.reviewForm.reset();
+    this.selectedCustomerId = null;
+    this.editingReviewId = null;
+    if (id) this.loadReviews(id);
+  }
+
+  deleteReview(reviewId: string, customerId: string): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: 'Delete this review?'
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        this.reviewService.delete(reviewId)
+          .subscribe(() => this.loadReviews(customerId));
+      }
+    });
+  }
+
+  like(review: IReview): void {
+    this.reviewService.like(review._id!)
+      .subscribe(updated => review.likes = updated.likes);
+  }
+
+  getStars(rating: number): number[] {
+    return Array(Math.round(rating / 2)).fill(0);
+  }
+
+  // ========================
+  // VISITS
+  // ========================
+
+  loadVisits(customerId: string): void {
+  this.loadingVisits[customerId] = true;
+  this.customerVisits = { ...this.customerVisits, [customerId]: [] };
+  this.currentCustomerId = customerId;
+  this.cdr.markForCheck();
+
+  this.visitService.getVisitsByCustomer(customerId, this.visitCurrentPage, this.visitPageSize).subscribe({
+    next: (res: any) => {
+      console.log('customerId recibido:', customerId);
+      console.log('res.data:', res.data);
+      console.log('customerVisits ANTES:', JSON.stringify(this.customerVisits));
+      
+      this.customerVisits = {
+        ...this.customerVisits,
+        [customerId]: res.data ?? []
+      };
+      
+      console.log('customerVisits DESPUÉS:', JSON.stringify(this.customerVisits));
+      
+      this.visitTotalPages = res.pagination?.pages ?? 1;
+      this.visitTotalItems = res.pagination?.total ?? 0;
+      this.loadingVisits[customerId] = false;
+      this.cdr.detectChanges();
+     },
+     error: (err: any) => {
+      console.error('Error loading visits', err);
+      this.customerVisits = { ...this.customerVisits, [customerId]: [] };
+      this.loadingVisits[customerId] = false;
+      this.cdr.markForCheck();
+     }
+   });
+  }
+
+  changeVisitPage(page: number): void {
+    if (page >= 1 && page <= this.visitTotalPages) {
+      this.visitCurrentPage = page;
       if (this.currentCustomerId) {
         this.loadVisits(this.currentCustomerId);
       }
     }
   }
 
-  loadVisits(customerId: string): void {
-    this.loadingVisits[customerId] = true;
-    this.currentCustomerId = customerId; // Guardamos el ID actual para la paginación
-    this.cdr.markForCheck();
-
-    // Enviamos página y tamaño al servicio (asegúrate de que tu service.ts acepte estos params)
-    this.visitService.getVisitsByCustomer(customerId, this.currentPage, this.pageSize).subscribe({
-      next: (res: any) => {
-        // IMPORTANTE: Ahora el backend devuelve { data: [], pagination: {} }
-        this.customerVisits[customerId] = res.data; 
-        this.totalPages = res.pagination.pages;
-        this.totalItems = res.pagination.total;
-        
-        this.loadingVisits[customerId] = false;
-        this.cdr.detectChanges(); 
-      },
-      error: (err: any) => {
-        console.error('Error loading visits', err);
-        this.loadingVisits[customerId] = false;
-        this.cdr.markForCheck();
-      }
+  prepareNewVisit(customerId: string): void {
+    this.currentCustomerId = customerId;
+    this.isEditingVisit = false;
+    this.activeVisitForm = true;
+    this.visitForm.reset({
+      date: new Date().toISOString().substring(0, 10),
+      billAmount: 0,
+      pointsEarned: 0
     });
   }
 
-  // --- RESTO DE MÉTODOS DE VISITAS ---
+  editVisit(visit: IVisit, customerId: string): void {
+    this.currentCustomerId = customerId;
+    this.selectedVisitId = visit._id!;
+    this.isEditingVisit = true;
+    this.activeVisitForm = true;
+
+    const restaurantId = (visit.restaurant_id as any)?._id || visit.restaurant_id;
+    const formattedDate = new Date(visit.date).toISOString().substring(0, 10);
+
+    this.visitForm.patchValue({
+      restaurant_id: restaurantId,
+      billAmount: visit.billAmount,
+      pointsEarned: visit.pointsEarned,
+      date: formattedDate
+    });
+  }
 
   saveVisit(): void {
     if (this.visitForm.invalid) return;
@@ -151,7 +433,6 @@ export class CustomerList implements OnInit {
         pointsEarned: Number(formValue.pointsEarned),
         billAmount: Number(formValue.billAmount)
       };
-
       this.visitService.updateVisit(this.selectedVisitId, updatePayload).subscribe({
         next: () => {
           this.loadVisits(this.currentCustomerId!);
@@ -159,7 +440,6 @@ export class CustomerList implements OnInit {
         },
         error: (err) => alert('Error al actualizar: ' + (err.error?.message || 'Revisa Joi'))
       });
-
     } else {
       const createPayload = {
         customer_id: this.currentCustomerId,
@@ -168,7 +448,6 @@ export class CustomerList implements OnInit {
         pointsEarned: Number(formValue.pointsEarned),
         billAmount: Number(formValue.billAmount)
       };
-
       this.visitService.createVisit(createPayload).subscribe(() => {
         this.loadVisits(this.currentCustomerId!);
         this.cancelVisitForm();
@@ -178,13 +457,8 @@ export class CustomerList implements OnInit {
 
   softDeleteVisit(visitId: string, customerId: string): void {
     if (confirm('¿Deseas enviar esta visita a la papelera?')) {
-      // El backend ahora acepta deletedAt gracias al cambio en Schemas.ts
-      const updateData = { deletedAt: new Date() };
-      
-      this.visitService.updateVisit(visitId, updateData).subscribe({
-        next: () => {
-          this.loadVisits(customerId); // Desaparecerá porque el backend filtra deletedAt: null
-        },
+      this.visitService.updateVisit(visitId, { deletedAt: new Date() }).subscribe({
+        next: () => this.loadVisits(customerId),
         error: (err) => console.error('Error en Soft Delete:', err)
       });
     }
@@ -198,102 +472,9 @@ export class CustomerList implements OnInit {
     }
   }
 
-  // --- GESTIÓN DE FORMULARIOS Y OTROS ---
-
-  prepareNewVisit(customerId: string): void {
-    this.currentCustomerId = customerId;
-    this.isEditingVisit = false;
-    this.activeVisitForm = true;
-    this.visitForm.reset({ 
-      date: new Date().toISOString().substring(0, 10), 
-      billAmount: 0, 
-      pointsEarned: 0 
-    });
-  }
-
-  editVisit(visit: any, customerId: string): void {
-    this.currentCustomerId = customerId;
-    this.selectedVisitId = visit._id;
-    this.isEditingVisit = true;
-    this.activeVisitForm = true;
-    
-    const restaurantId = visit.restaurant_id?._id || visit.restaurant_id;
-    const formattedDate = new Date(visit.date).toISOString().substring(0, 10);
-
-    this.visitForm.patchValue({
-      restaurant_id: restaurantId,
-      billAmount: visit.billAmount,
-      pointsEarned: visit.pointsEarned,
-      date: formattedDate
-    });
-  }
-
   cancelVisitForm(): void {
     this.activeVisitForm = false;
     this.selectedVisitId = null;
     this.visitForm.reset();
-  }
-
-  guardar(): void {
-    if (this.customerForm.invalid) return;
-    const data = this.customerForm.value;
-    if (this.editting && this.customerEditId) {
-      this.api.updateCustomer(this.customerEditId, data).subscribe(() => {
-        this.load();
-        this.resetForm();
-      });
-    } else {
-      this.api.createCustomer(data).subscribe(() => {
-        this.load();
-        this.resetForm();
-      });
-    }
-  }
-
-  delete(id: string) {
-    this.api.deleteCustomer(id).subscribe(() => this.load());
-  }
-
-  toggleShowForm(): void {
-    if (this.editting) {
-      this.showForm = true;
-      this.editting = false;
-      this.customerForm.reset();
-    } else { 
-      this.showForm = !this.showForm; 
-    }
-  }
-
-  showMore(): void { this.showAllCustomers = true; }
-
-  get visibleCustomers(): ICustomer[] {
-    return this.showAllCustomers 
-      ? this.filteredCustomers 
-      : this.filteredCustomers.slice(0, this.limit);
-  }
-
-  edit(customer: ICustomer): void {
-    this.showForm = true;
-    this.editting = true;
-    this.customerEditId = customer._id;
-    this.customerForm.patchValue({
-      name: customer.name,
-      email: customer.email,
-      password: '****'
-    });
-  }
-
-  resetForm(): void {
-    this.showForm = false;
-    this.editting = false;
-    this.customerEditId = undefined;
-    this.customerForm.reset();
-  }
-
-  confirmDelete(id: string, name?: string) {
-    const dialogRef = this.dialog.open(ConfirmDialogComponent, { data: name });
-    dialogRef.afterClosed().subscribe(result => {
-      if (result) this.delete(id);
-    });
   }
 }

@@ -13,7 +13,7 @@
   Add
 </button>
 
-@if (!loading && !errorMsg && restaurants.length > 0) {
+@if (!loading && !errorMsg && pagedRestaurants.length > 0) {
   <button type="button" class="btn" (click)="load()">
     Refresh
   </button>
@@ -22,17 +22,30 @@
 @if (showForm) {
   <div class="name">
     <h3>{{ editting ? 'Edit organization' : 'New organization' }}</h3>
+    <p>(fields with * are obligatory)</p>
 
     <form [formGroup]="restaurantForm" (ngSubmit)="save()">
 
       <div>
-        <label>Name: </label>
+        <label>*Name: </label>
         <input type="text" formControlName="name"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('name')?.hasError('minlength') && restaurantForm.get('name')?.touched">
+          Name is too short.
+        </small>
+        <small style="color: red;" *ngIf="restaurantForm.get('name')?.hasError('maxlength') && restaurantForm.get('name')?.touched">
+          Name is too long.
+        </small>
       </div>
 
       <div>
-        <label>Description: </label>
+        <label>*Description: </label>
         <input type="text" formControlName="description"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('description')?.hasError('minlength') && restaurantForm.get('description')?.touched">
+          Description is too short.
+        </small>
+        <small style="color: red;" *ngIf="restaurantForm.get('description')?.hasError('maxlength') && restaurantForm.get('description')?.touched">
+          Description is too long.
+        </small>
       </div>
 
       <div>
@@ -46,46 +59,135 @@
         </small>
       </div>
 
+      <p>*Category (at least one obligatory)</p>
       <div>
-        <label>Category: </label>
-        <input type="text" formControlName="category"/>
+        <label>Italià:</label>
+        <input type="checkbox" formControlName="categoryItalià"/>
+        <label> Japonès:</label> 
+        <input type="checkbox" formControlName="categoryJaponès"/>
+        <label> Sushi:</label> 
+        <input type="checkbox" formControlName="categorySushi"/>
+        <label> Mexicà:</label> 
+        <input type="checkbox" formControlName="categoryMexicà"/>
+        <label> Xinès:</label> 
+        <input type="checkbox" formControlName="categoryXinès"/>
+        <label> Indi:</label> 
+        <input type="checkbox" formControlName="categoryIndi"/>
+        <label> Tailandès:</label> 
+        <input type="checkbox" formControlName="categoryTailandès"/>
+        <label> Francès:</label> 
+        <input type="checkbox" formControlName="categoryFrancès"/>
+        <label> Espanyol:</label> 
+        <input type="checkbox" formControlName="categoryEspanyol"/>
+        <label> Grec:</label> 
+        <input type="checkbox" formControlName="categoryGrec"/>
+        <label> Turc:</label> 
+        <input type="checkbox" formControlName="categoryTurc"/>
+        <label> Coreà:</label> 
+        <input type="checkbox" formControlName="categoryCoreà"/>
+        <label> Vietnamita:</label> 
+        <input type="checkbox" formControlName="categoryVietnamita"/>
+        <label> Alemany:</label> 
+        <input type="checkbox" formControlName="categoryAlemany"/>
+        <label> Brasileny:</label> 
+        <input type="checkbox" formControlName="categoryBrasileny"/>
+        <label> Peruà:</label> 
+        <input type="checkbox" formControlName="categoryPeruà"/>
+        <label> Vegà:</label> 
+        <input type="checkbox" formControlName="categoryVegà"/>
+        <label> Vegetarià:</label> 
+        <input type="checkbox" formControlName="categoryVegetarià"/>
+        <label> Marisc:</label> 
+        <input type="checkbox" formControlName="categoryMarisc"/>
+        <label> Carn:</label> 
+        <input type="checkbox" formControlName="categoryCarn"/>
+        <label> Pizzeria:</label> 
+        <input type="checkbox" formControlName="categoryPizzeria"/>
+        <label> Cafeteria:</label> 
+        <input type="checkbox" formControlName="categoryCafeteria"/>
+        <label> Ramen:</label> 
+        <input type="checkbox" formControlName="categoryRamen"/>
+        <label> Gluten Free:</label> 
+        <input type="checkbox" formControlName="categoryGlutenFree"/>
+        <label> Gourmet:</label> 
+        <input type="checkbox" formControlName="categoryGourmet"/>
+        <label> Fast Food:</label> 
+        <input type="checkbox" formControlName="categoryFastFood"/>
+        <label> Buffet:</label> 
+        <input type="checkbox" formControlName="categoryBuffet"/>
+        <label> Food Truck:</label> 
+        <input type="checkbox" formControlName="categoryFoodTruck"/>
+        <label> Lounge:</label> 
+        <input type="checkbox" formControlName="categoryLounge"/>
+        <label> Pub:</label> 
+        <input type="checkbox" formControlName="categoryPub"/>
+        <label> Wine Bar:</label> 
+        <input type="checkbox" formControlName="categoryWineBar"/>
+        <label> Rooftop:</label> 
+        <input type="checkbox" formControlName="categoryRooftop"/>
+        <label> Bar:</label> 
+        <input type="checkbox" formControlName="categoryBar"/>
+        <label> Taperia:</label> 
+        <input type="checkbox" formControlName="categoryTaperia"/>
+        <label> Gelateria:</label> 
+        <input type="checkbox" formControlName="categoryGelateria"/>
+        <label> Estrella Michelin:</label> 
+        <input type="checkbox" formControlName="categoryEstrellaMichelin"/>
+        <label> Street Food:</label> 
+        <input type="checkbox" formControlName="categoryStreetFood"/>
       </div>
 
-      <p></p>
+      <p>Time table: (format: HH:MM-HH:MM,HH-MM-HH:MM,...)</p>
       <div>
         <label>Monday: </label>
-        <input type="time" formControlName="mondayOpen"/>
-        <input type="time" formControlName="mondayClose"/>
+        <input type="text" formControlName="monday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('monday')?.hasError('pattern') && restaurantForm.get('monday')?.touched">
+          Invalid format.
+        </small>
       </div>
       <div>
         <label>Tuesday: </label>
-        <input type="time" formControlName="tuesdayOpen"/>
-        <input type="time" formControlName="tuesdayClose"/>
+        <input type="text" formControlName="tuesday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('tuesday')?.hasError('pattern') && restaurantForm.get('tuesday')?.touched">
+          Invalid format.
+        </small>
       </div>
       <div>
         <label>Wednesday: </label>
-        <input type="time" formControlName="wednesdayOpen"/>
-        <input type="time" formControlName="wednesdayClose"/>
+        <input type="text" formControlName="wednesday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('wednesday')?.hasError('pattern') && restaurantForm.get('wednesday')?.touched">
+          Invalid format.
+        </small>
+
       </div>
       <div>
         <label>Thursday: </label>
-        <input type="time" formControlName="thursdayOpen"/>
-        <input type="time" formControlName="thursdayClose"/>
+        <input type="text" formControlName="thursday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('thursday')?.hasError('pattern') && restaurantForm.get('thursday')?.touched">
+          Invalid format.
+        </small>
+
       </div>
       <div>
         <label>Friday: </label>
-        <input type="time" formControlName="fridayOpen"/>
-        <input type="time" formControlName="fridayClose"/>
+        <input type="text" formControlName="friday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('friday')?.hasError('pattern') && restaurantForm.get('friday')?.touched">
+          Invalid format.
+        </small>
       </div>
       <div>
         <label>Saturday: </label>
-        <input type="time" formControlName="saturdayOpen"/>
-        <input type="time" formControlName="saturdayClose"/>
+        <input type="text" formControlName="saturday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('saturday')?.hasError('pattern') && restaurantForm.get('saturday')?.touched">
+          Invalid format.
+        </small>
       </div>
       <div>
         <label>Sunday: </label>
-        <input type="time" formControlName="sundayOpen"/>
-        <input type="time" formControlName="sundayClose"/>
+        <input type="text" formControlName="sunday"/>
+        <small style="color: red;" *ngIf="restaurantForm.get('sunday')?.hasError('pattern') && restaurantForm.get('sunday')?.touched">
+          Invalid format.
+        </small>
       </div>
 
       <p></p> <!-- to make a \n -->
@@ -108,7 +210,7 @@
       </div>
 
       <div>
-        <label>City: </label>
+        <label>*City: </label>
         <input type="text" formControlName="city"/>
       </div>
 
@@ -123,7 +225,7 @@
       </div>
 
       <div>
-        <label>Type: </label>
+        <label>*Type: </label>
         <select type="text" formControlName="type">
           <option value="" disabled selected>Select type</option>
           <option [value]="'Point'">Point</option>
@@ -131,13 +233,13 @@
       </div>
 
       <div>
-        <label>Latitude: </label>
-        <input type="text" formControlName="lat"/>
+        <label>*Longitude: </label>
+        <input type="number" formControlName="lon" step="0.0001" max="180" min="-180"/>
       </div>
 
       <div>
-        <label>Longitude: </label>
-        <input type="text" formControlName="lon"/>
+        <label>*Latitude: </label>
+        <input type="number" formControlName="lat" step="0.0001" max="90" min="-90"/>
       </div>
 
       <p></p>
@@ -152,11 +254,6 @@
       </div>
 
       <div>
-        <label>Rewards: </label>
-        <input type="text" formControlName="rewards"/>
-      </div>
-
-      <div>
         <label>Statistics: </label>
         <input type="text" formControlName="statistics"/>
       </div>
@@ -168,7 +265,7 @@
 
       <button type="submit"
               class="btn"
-              [disabled]="restaurantForm.invalid">
+              [disabled]="restaurantForm.invalid" (click)="save()">
         {{ editting ? 'Update' : 'Save' }}
       </button>
 
@@ -177,7 +274,7 @@
   </div>
 }
 
-<ul class="list" *ngIf="!loading && !errorMsg && restaurants.length > 0">
+<ul class="list" *ngIf="!loading && !errorMsg && pagedRestaurants.length > 0">
   <li *ngFor="let restaurant of visibleRestaurants; trackBy: trackById">
     <div class="header">
       <div>
@@ -422,24 +519,20 @@
   </li>
 </ul>
 
-<button 
-    *ngIf="!showAllRestaurants && restaurants.length > limit"
-    class="btn"
-    (click)="showMore()">
-  Show more
-</button>
-<button 
-  *ngIf="showAllRestaurants"
-  class="btn"
-  (click)="showAllRestaurants = false">
+<div class="footer">
+  <button class="btn" (click)="leftPage()">
+    ⬅ Previous
+  </button>
+  <p class="btn">{{ currentPage }}</p>
+  <button class="btn" (click)="rightPage()">
+    Next ➡
+  </button>
 
-  Show less
-</button>
+  <p *ngIf="!loading && !errorMsg && pagedRestaurants.length === 0">
+    No organizations.
+  </p>
 
-<p *ngIf="!loading && !errorMsg && restaurants.length === 0">
-  No organizations.
-</p>
-
-<button type="button" class="btn" (click)="load()">
-  Refresh
-</button>
+  <button type="button" class="btn" (click)="load()">
+    Refresh
+  </button>
+</div>
