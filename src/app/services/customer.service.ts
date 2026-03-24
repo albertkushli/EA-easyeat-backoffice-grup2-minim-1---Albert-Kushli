@@ -28,12 +28,24 @@ export class CustomerService {
     );
   }
 
+
   updateCustomer(id: string, data: any): Observable<ICustomer> {
   return this.http.put<ICustomer>(
     `${this.baseUrl}/customers/${id}`,
     data   
   );
 }
+softDeleteCustomer(customerId: string): Observable<ICustomer> {
+    return this.http.delete<ICustomer>(
+      `${this.baseUrl}/customers/${customerId}/soft`
+    );
+  }
+   restoreCustomer(customerId: string): Observable<ICustomer> {
+    return this.http.patch<ICustomer>(
+      `${this.baseUrl}/customers/${customerId}/restore`,
+      {}
+    );
+  }
 
   deleteCustomer(customerId: string): Observable<ICustomer> {
     return this.http.delete<ICustomer>(

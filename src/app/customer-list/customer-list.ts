@@ -159,6 +159,43 @@ export class CustomerList implements OnInit {
     });
   }
 
+  isCustomerDisabled(customer: ICustomer): boolean {
+    const state = customer as ICustomer & {
+      active?: boolean;
+      disabled?: boolean;
+      deleted?: boolean;
+      isDeleted?: boolean;
+    };
+
+    if (typeof state.active === 'boolean') {
+      return !state.active;
+    }
+
+    return Boolean(state.disabled ?? state.deleted ?? state.isDeleted);
+  }
+
+  toggleCustomerStatus(customer: ICustomer): void {
+    if (!customer._id) return;
+
+    const wasDisabled = this.isCustomerDisabled(customer);
+
+    const request = wasDisabled
+      ? this.api.restoreCustomer(customer._id)
+      : this.api.softDeleteCustomer(customer._id);
+
+    request.subscribe({
+      next: () => {
+        (customer as ICustomer & { active?: boolean }).active = wasDisabled;
+        this.filteredCustomers = [...this.filteredCustomers];
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error(err);
+        this.errorMsg = 'Error updating customer status';
+      }
+    });
+  }
+
   delete(id: string): void {
     this.api.deleteCustomer(id).subscribe(() => this.load());
   }

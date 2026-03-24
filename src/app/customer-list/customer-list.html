@@ -60,10 +60,17 @@
 @if (!loading && !errorMsg && customers.length > 0) {
   <ul class="list">
     @for (customer of visibleCustomers; track customer._id) {
-      <li class="card">
+      <li
+        class="card"
+        [style.backgroundColor]="isCustomerDisabled(customer) ? '#fff3e0' : null"
+        [style.border]="isCustomerDisabled(customer) ? '1px solid #ffb74d' : null"
+      >
 
         <div>
-          <span class="name">
+          <span
+            class="name"
+            [style.color]="isCustomerDisabled(customer) ? '#e65100' : null"
+          >
             {{
               expanded[customer._id!] || customer.name.length <= 30
                 ? customer.name
@@ -79,17 +86,25 @@
         <div>
           <span class="muted">{{ customer._id }}</span>
 
-          <button class="btn" type="button" (click)="edit(customer)">Edit</button>
+          @if (isCustomerDisabled(customer)) {
+            <span class="muted" style="margin-left: 8px; color: #e65100; font-weight: 700;">
+              DISABLED
+            </span>
+          }
 
-          <button
-            class="btn delete-btn"
-            type="button"
-            (click)="confirmDelete(customer._id!, customer.name)"
-          >
-            X
+          <button class="btn" type="button" (click)="edit(customer)" [disabled]="isCustomerDisabled(customer)">
+            Edit
           </button>
 
-          <button class="btn" type="button" (click)="openReviewForm(customer._id!)">
+          <button
+            class="btn"
+            type="button"
+            (click)="toggleCustomerStatus(customer)"
+          >
+            {{ isCustomerDisabled(customer) ? 'Enable' : 'Disable' }}
+          </button>
+
+          <button class="btn" type="button" (click)="openReviewForm(customer._id!)" [disabled]="isCustomerDisabled(customer)">
             ➕ Review
           </button>
         </div>
