@@ -22,7 +22,7 @@ export class RestaurantList implements OnInit {
   filteredRestaurants: IRestaurant[] = [];
   pagedRestaurants: IRestaurant[] = [];
   searchControl = new FormControl('');
-  search = true;
+  search = false;
   loading = true;
   errorMsg = '';
   showForm = false;
@@ -30,10 +30,12 @@ export class RestaurantList implements OnInit {
   editting = false;
   restaurantEditId: string | undefined;
   expanded: { [key: string]: boolean } = {};
-  limit = 2;
+  restaurantFull: { [key: string]: IRestaurant } = {};
+  limit = 3;
   currentPage = 1;
   showAllRestaurants = false;
   showAllData = false;
+  goToPageControl = new FormControl<number | null>(1);
 
   showRewardForm: { [key: string]: boolean } = {};
   newRewardForm!: FormGroup;
@@ -88,7 +90,7 @@ export class RestaurantList implements OnInit {
       categoryGelateria: [false],
       categoryEstrellaMichelin: [false],
       categoryStreetFood: [false],
-      rating: [0, [Validators.pattern('^[0-5]+(\\.[0-9]+)?$'), Validators.min(0), Validators.max(5)]],
+      globalRating: [0, [Validators.pattern('^[0-5]+(\\.[0-9]+)?$'), Validators.min(0), Validators.max(5)]],
       monday: ['',    [Validators.pattern('(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d(?:,(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d)*')]],
       tuesday: ['',   [Validators.pattern('(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d(?:,(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d)*')]],
       wednesday: ['', [Validators.pattern('(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d(?:,(?:[01]\\d|2[0-3]):[0-5]\\d-(?:[01]\\d|2[0-3]):[0-5]\\d)*')]],
@@ -149,6 +151,8 @@ export class RestaurantList implements OnInit {
       this.filteredRestaurants = this.restaurants.filter(restaurant =>
         restaurant.profile.name.toLowerCase().includes(term)
       );
+      this.currentPage = 1;
+      this.updatePagedRestaurants();
     });
   }
 
@@ -161,9 +165,7 @@ export class RestaurantList implements OnInit {
       next: (res) => {
         this.restaurants = res;
         this.filteredRestaurants = [...this.restaurants];
-        if (res.length > 2) {
-          this.pagedRestaurants = this.filteredRestaurants.slice(this.currentPage*this.limit - this.limit, this.currentPage*this.limit);
-        }
+        this.updatePagedRestaurants();
         this.loading = false;
         this.cdr.markForCheck();
       },
@@ -206,7 +208,7 @@ export class RestaurantList implements OnInit {
     this.restaurantForm.patchValue({
       name: restaurant.profile.name,
       description: restaurant.profile.description,
-      rating: restaurant.profile.rating,
+      globalRating: restaurant.profile.globalRating,
       categoryItalià: restaurant.profile.category?.includes('Italià'),
       categoryJaponès: restaurant.profile.category?.includes('Japonès'),
       categorySushi: restaurant.profile.category?.includes('Sushi'),
@@ -269,6 +271,10 @@ export class RestaurantList implements OnInit {
 
   save(): void {
     if (this.restaurantForm.invalid) return;
+
+    this.loading = true;
+    this.errorMsg = '';
+    this.cdr.markForCheck();
 
     const monday: { open: string; close: string }[] | undefined = this.restaurantForm.value.monday ? this.restaurantForm.value.monday.split(',').map((slot: string) => {
       const [open, close] = slot.split('-');
@@ -376,7 +382,7 @@ export class RestaurantList implements OnInit {
         },
         name: this.restaurantForm.value.name,
         description: this.restaurantForm.value.description,
-        rating: this.restaurantForm.value.rating,
+        globalRating: this.restaurantForm.value.globalRating,
         category: category,
         image: this.restaurantForm.value.imageUrl === '' ? undefined : this.restaurantForm.value.imageUrl.split(',').map((slot: string) => {
           return slot;
@@ -390,14 +396,16 @@ export class RestaurantList implements OnInit {
     };
 
     if (this.editting && this.restaurantEditId) {
-      this.api.updateRestaurant(this.restaurantEditId, newRestaurant)
-        .subscribe({
+      this.api.updateRestaurant(this.restaurantEditId, newRestaurant).subscribe({
           next: () => {
             this.resetForm();
             this.load();
           },
-          error: () => {
+          error: (err) => {
             this.errorMsg = 'Could not update the restaurant.';
+            console.error(err);
+            this.loading = false;
+            this.cdr.markForCheck();
           }
         });
 
@@ -408,31 +416,34 @@ export class RestaurantList implements OnInit {
             this.resetForm();
             this.load();
           },
-          error: () => {
+          error: (err) => {
             this.errorMsg = 'Could not create the restaurant.';
+            this.errorMsg = 'Could not create the restaurant.';
+            console.error(err);
+            this.loading = false;
+            this.cdr.markForCheck();
           }
         });
     }
   }
+  
+  toggleExpand(restaurantId: string): void {
+    this.expanded[restaurantId] = !this.expanded[restaurantId];
 
-  toggleExpand(id: string): void {
-    this.expanded[id] = !this.expanded[id];
-    if (this.expanded[id] && !this.restaurantVisits[id]) {
-      this.loading = true;
-      this.visitApi.getVisitsByRestaurantId(id).subscribe({
-        next: (visits) => {
-          this.restaurantVisits[id] = visits;
-          this.loading = false;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.errorMsg = 'Could not load visits.';
-          this.loading = false;
-          this.cdr.markForCheck();
-        }
-      });
+    // Only fetch if expanding and not already loaded
+    if (this.expanded[restaurantId] && !this.restaurantFull[restaurantId]) {
+        this.api.getRestaurantFull(restaurantId).subscribe({
+            next: (full) => {
+                this.restaurantFull[restaurantId] = full;
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.errorMsg = 'Could not load full restaurant data.';
+                this.cdr.markForCheck();
+            }
+        });
     }
-  }
+}
 
   resetForm(): void {
     this.showForm = false;
@@ -725,17 +736,44 @@ export class RestaurantList implements OnInit {
     });
   }
 
-  leftPage(): void {
-    if (this.currentPage > 1) {
-      this.currentPage--;
-      this.load();
+  rightPage(): void {
+    if (this.currentPage < this.getTotalPages()) {
+      this.currentPage++;
+      this.updatePagedRestaurants();
     }
   }
 
-  rightPage(): void {
-    if (this.currentPage * 2 < this.filteredRestaurants.length) {
-      this.currentPage++;
-      this.load();
+  goToPage(): void {
+    const requestedPage = Number(this.goToPageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+
+    const totalPages = this.getTotalPages();
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+
+    this.currentPage = safePage;
+    this.goToPageControl.setValue(safePage, { emitEvent: false });
+    this.updatePagedRestaurants();
+  }
+
+  getTotalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredRestaurants.length / this.limit));
+  }
+
+  private updatePagedRestaurants(): void {
+    const totalPages = this.getTotalPages();
+    this.currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
+
+    const start = (this.currentPage - 1) * this.limit;
+    const end = start + this.limit;
+    this.pagedRestaurants = this.filteredRestaurants.slice(start, end);
+    this.goToPageControl.setValue(this.currentPage, { emitEvent: false });
+    this.cdr.markForCheck();
+  }
+
+  leftPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePagedRestaurants();
     }
   }
 }

@@ -3,6 +3,10 @@ export interface ICustomer {
     name: string;
     email: string;
     password: string;
+    active?: boolean;
+    disabled?: boolean;
+    deleted?: boolean;
+    isDeleted?: boolean;
     profilePictures?: string[];
     pointsWallet?: string[];
     visitHistory?: string[];

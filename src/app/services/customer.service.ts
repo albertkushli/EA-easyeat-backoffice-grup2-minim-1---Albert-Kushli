@@ -12,9 +12,9 @@ export class CustomerService {
 
   constructor(private http: HttpClient) {}
 
-  createCustomer(data: any) {
-  return this.http.post(`${this.baseUrl}/customers`, data);
-}
+  createCustomer(data: Partial<ICustomer>): Observable<ICustomer> {
+    return this.http.post<ICustomer>(`${this.baseUrl}/customers`, data);
+  }
 
   getCustomerById(customerId: string): Observable<ICustomer> {
     return this.http.get<ICustomer>(
@@ -28,22 +28,28 @@ export class CustomerService {
     );
   }
 
+
   updateCustomer(id: string, data: any): Observable<ICustomer> {
   return this.http.put<ICustomer>(
     `${this.baseUrl}/customers/${id}`,
     data   
   );
 }
-
-  deleteCustomer(customerId: string): Observable<ICustomer> {
+softDeleteCustomer(customerId: string): Observable<ICustomer> {
     return this.http.delete<ICustomer>(
       `${this.baseUrl}/customers/${customerId}/soft`
     );
   }
-
-  /*getCustomerWithRestaurant(customerId: string): Observable<ICustomer> {
-    return this.http.get<ICustomer>(
-      `${this.baseUrl}/customer/${customerId}`
+   restoreCustomer(customerId: string): Observable<ICustomer> {
+    return this.http.patch<ICustomer>(
+      `${this.baseUrl}/customers/${customerId}/restore`,
+      {}
     );
-  }*/
+  }
+
+  hardDeleteCustomer(customerId: string): Observable<ICustomer> {
+    return this.http.delete<ICustomer>(
+      `${this.baseUrl}/customers/${customerId}/hard`
+    );
+  }
 }

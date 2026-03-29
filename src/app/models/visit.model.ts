@@ -6,4 +6,5 @@ export interface IVisit {
     date: Date | string;
     pointsEarned?: number;
     billAmount?: number;
+    deletedAt?: Date | string | null;
 }

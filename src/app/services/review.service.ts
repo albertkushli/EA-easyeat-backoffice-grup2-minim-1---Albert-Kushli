@@ -29,22 +29,13 @@ export class ReviewService {
   }
 
   // ========================
-  // GET BY CUSTOMER 
+  // GET BY CUSTOMER - FULL LIST (NO QUERY PARAMS)
   // ========================
- getByCustomer(
-  customerId: string,
-  limit = 5,
-  skip = 0,
-  minRating?: number,
-  sortByLikes?: boolean
-) {
-  let url = `${this.baseUrl}/customer/${customerId}?limit=${limit}&skip=${skip}`;
-
-  if (minRating) url += `&minRating=${minRating}`;
-  if (sortByLikes) url += `&sortByLikes=true`;
-
-  return this.http.get<{ data: IReview[]; total: number }>(url);
-}
+  getByCustomer(customerId: string): Observable<IReview[]> {
+    return this.http.get<IReview[]>(
+      `${environment.apiUrl}/customers/${customerId}/reviews`
+    );
+  }
 
   // ========================
   // CREATE
