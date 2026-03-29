@@ -110,7 +110,7 @@
             <!-- Filtros de reviews -->
             <div class="card" style="margin-top:10px;">
               <label>Min globalRating:</label>
-              <select [(ngModel)]="minglobalRatingFilter" (change)="loadReviews(customer._id!)">
+              <select [(ngModel)]="minGlobalRatingFilter" (change)="loadReviews(customer._id!)">
                 <option [ngValue]="null">All</option>
                 <option [ngValue]="5">5+</option>
                 <option [ngValue]="7">7+</option>
