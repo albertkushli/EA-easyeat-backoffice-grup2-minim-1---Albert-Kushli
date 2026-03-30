@@ -206,20 +206,26 @@ export class RestaurantList implements OnInit {
   }
 
   toggleExpand(restaurantId: string): void {
-    this.expanded[restaurantId] = !this.expanded[restaurantId];
+  this.expanded[restaurantId] = !this.expanded[restaurantId];
 
-    if (this.expanded[restaurantId] && !this.restaurantFull[restaurantId]) {
-      this.api.getRestaurantFull(restaurantId).subscribe({
-        next: (full) => {
-          this.restaurantFull[restaurantId] = full;
-          this.cdr.markForCheck();
-        },
-        error: () => {
-          this.errorMsg = 'Could not load full restaurant data.';
-          this.cdr.markForCheck();
-        }
-      });
+  if (this.expanded[restaurantId]) {
+    if (!this.restaurantFull[restaurantId]) {
+        this.api.getRestaurantFull(restaurantId).subscribe({
+          next: (full) => {
+            this.restaurantFull[restaurantId] = full;
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.errorMsg = 'Could not load full restaurant data.';
+            this.cdr.markForCheck();
+          }
+        });
     }
+
+    if (!this.restaurantVisits[restaurantId]) {
+      this.loadRestaurantVisits(restaurantId);
+    }
+   }
   }
 
   edit(restaurant: IRestaurant): void {
