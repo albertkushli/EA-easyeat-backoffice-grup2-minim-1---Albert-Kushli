@@ -242,12 +242,12 @@ export class RestaurantList implements OnInit {
 
     if (this.expanded[restaurantId]) {
       this.refreshRestaurantFull(restaurantId);
-      this.loadRestaurantRewards(restaurantId);
-      this.loadRestaurantVisits(restaurantId);
 
-        if (!this.restaurantVisits[restaurantId]) {
-          this.loadRestaurantVisits(restaurantId);
-        }
+      this.rewardPage[restaurantId] = 0;
+      this.loadRestaurantRewards(restaurantId);
+
+      this.visitPage[restaurantId] = 0;
+      this.loadRestaurantVisits(restaurantId);
     }
   }
 
@@ -509,10 +509,7 @@ export class RestaurantList implements OnInit {
   private loadRestaurantRewards(restaurantId: string): void {
     this.rewardApi.getRewards().subscribe({
       next: (allRewards: IReward[]) => {
-        console.log(allRewards);
-        console.log(restaurantId);
         const res: IReward[] = allRewards.filter((reward: IReward) => reward.restaurant_id === restaurantId)
-        console.log(res);
         this.restaurantRewards = {
           ...this.restaurantRewards,
           [restaurantId]: this.paginateRewards(res, restaurantId) ?? []
