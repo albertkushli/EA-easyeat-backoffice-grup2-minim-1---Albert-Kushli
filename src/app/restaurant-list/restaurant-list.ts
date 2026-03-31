@@ -20,6 +20,8 @@ import { CustomerService } from '../services/customer.service';
   styleUrls: ['./restaurant-list.css'],
 })
 export class RestaurantList implements OnInit {
+  Math = Math;
+  
   restaurants: IRestaurant[] = [];
   customers: ICustomer[] = [];
   filteredRestaurants: IRestaurant[] = [];
@@ -51,6 +53,11 @@ export class RestaurantList implements OnInit {
   editingVisitId: string | null = null;
   editVisitForm!: FormGroup;
   loadingCustomers: boolean = false;
+  visitPage: { [customerId: string]: number } = {};
+  visitTotal: { [key: string]: number } = {};
+  visitLimit = 2;
+  visitsExpanded: { [customerId: string]: boolean } = {};
+  goToVisitPageControl = new FormControl<number | null>(1);
 
   constructor(
     private api: RestaurantService,
@@ -218,6 +225,7 @@ export class RestaurantList implements OnInit {
         this.api.getRestaurantFull(restaurantId).subscribe({
           next: (full) => {
             this.restaurantFull[restaurantId] = full;
+            this.visitPage[restaurantId] = 0;
             this.cdr.markForCheck();
           },
           error: () => {
@@ -557,7 +565,7 @@ export class RestaurantList implements OnInit {
       next: (res: any) => {
         this.restaurantVisits = {
           ...this.restaurantVisits,
-          [restaurantId]: res?.data ?? res ?? []
+          [restaurantId]: this.paginateVisits(res.data, restaurantId) ?? []
         };
         this.loading = false;
         this.cdr.markForCheck();
@@ -568,6 +576,46 @@ export class RestaurantList implements OnInit {
         this.cdr.markForCheck();
       }
     });
+  }
+
+  private paginateVisits(visits: IVisit[], restaurantId: string): IVisit[] {
+    const page = this.visitPage[restaurantId] || 0;
+    const start = page * this.visitLimit;
+    const end = start + this.visitLimit;
+
+    // Store total for pagination controls
+    this.visitTotal[restaurantId] = visits.length;
+
+    return visits.slice(start, end);
+  }
+
+  nextVisitPage(restaurantId: string): void {
+    const page = this.visitPage[restaurantId] || 0;
+    const total = this.visitTotal[restaurantId] || 0;
+
+    if ((page + 1) * this.visitLimit >= total) return;
+
+    this.visitPage[restaurantId] = page + 1;
+    this.loadRestaurantVisits(restaurantId);
+  }
+
+  prevVisitPage(restaurantId: string): void {
+    if ((this.visitPage[restaurantId] || 0) === 0) return;
+
+    this.visitPage[restaurantId]--;
+    this.loadRestaurantVisits(restaurantId);
+  }
+
+  goToVisitPage(customerId: string): void {
+    const requestedPage = Number(this.goToVisitPageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+
+    const totalPages = this.visitTotal[customerId] || 0;
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+
+    this.visitPage[customerId] = safePage - 1;
+    this.goToVisitPageControl.setValue(safePage, { emitEvent: false });
+    this.loadRestaurantVisits(customerId);
   }
 
   toggleVisitForm(restaurantId: string): void {

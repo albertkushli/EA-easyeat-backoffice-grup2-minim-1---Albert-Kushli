@@ -17,10 +17,7 @@ export class VisitService {
     return this.http.get<any>(`${this.baseUrl}/visits`, { params });
   }
 
-  getVisitsByCustomerId(customerId: string): Observable<IVisit[]> {
-    console.log(`[VisitService] Requesting visits for customer: ${customerId}`);
-    console.log(`[VisitService] URL: ${this.baseUrl}/customers/${customerId}/visits`);
-    
+  getVisitsByCustomerId(customerId: string): Observable<IVisit[]> {    
     return this.http.get<IVisit[]>(
       `${this.baseUrl}/customers/${customerId}/visits`
     );

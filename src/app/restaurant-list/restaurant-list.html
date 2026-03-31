@@ -651,6 +651,28 @@
         @if (restaurantVisits[restaurant._id!] && restaurantVisits[restaurant._id!].length === 0) {
           <p>No registered visits.</p>
         }
+        <div class="footer">
+          <button class="btn" (click)="prevVisitPage(restaurant._id!)" [disabled]="visitPage[restaurant._id!] < 1">
+            ⬅ Previous
+          </button>
+
+          <p class="btn">Page {{ (visitPage[restaurant._id!] || 0) + 1 }} / {{ Math.max(1, Math.ceil((visitTotal[restaurant._id!] || 0) / visitLimit)) }}</p>
+
+          <button class="btn" (click)="nextVisitPage(restaurant._id!)" [disabled]="((visitPage[restaurant._id!] || 0) + 1) * visitLimit >= (visitTotal[restaurant._id!] || 0)">
+            Next ➡
+          </button>
+
+          <label for="goToVisitPageInput" style="margin-left: 8px;">Go to page:</label>
+          <input
+            id="goToVisitPageInput"
+            type="number"
+            [formControl]="goToVisitPageControl"
+            min="1"
+            [max]="Math.max(1, Math.ceil((visitTotal[restaurant._id!] || 0) / visitLimit))"
+            style="width: 80px;"
+          />
+          <button class="btn" type="button" (click)="goToVisitPage(restaurant._id!)">Go</button>
+        </div>
 
         <div style="margin-top: 10px;">
           <button type="button" class="btn" (click)="toggleVisitForm(restaurant._id!)">

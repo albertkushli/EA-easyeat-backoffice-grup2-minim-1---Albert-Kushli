@@ -47,6 +47,7 @@ export class CustomerList implements OnInit {
   // ========================
   // REVIEWS
   // ========================
+  reviews: IReview[] = [];
   reviewsByCustomer: { [key: string]: IReview[] } = {};
   restaurants: IRestaurant[] = [];
   reviewForm!: FormGroup;
@@ -57,6 +58,7 @@ export class CustomerList implements OnInit {
   reviewTotal: { [key: string]: number } = {};
   minGlobalRatingFilter: number | null = null;
   sortByLikes = false;
+  goToReviewPageControl = new FormControl<number | null>(1);
 
   // ========================
   // VISITS
@@ -74,6 +76,7 @@ export class CustomerList implements OnInit {
   visitsExpanded: { [customerId: string]: boolean } = {};
   visitSortField: 'date' | 'billAmount' | 'pointsEarned' = 'date';
   visitSortOrder: 'asc' | 'desc' = 'desc';
+  goToVisitPageControl = new FormControl<number | null>(1);
 
   constructor(
     private api: CustomerService,
@@ -292,6 +295,29 @@ export class CustomerList implements OnInit {
     }
   }
 
+  goToPage(): void {
+    const requestedPage = Number(this.goToPageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+
+    const totalPages = this.totalPages;
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+
+    this.currentPage = safePage;
+    this.goToPageControl.setValue(safePage, { emitEvent: false });
+    this.updatePagedCustomers();
+  }
+
+  private updatePagedCustomers(): void {
+    const totalPages = this.totalPages;
+    this.currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
+
+    const start = (this.currentPage - 1) * this.limit;
+    const end = start + this.limit;
+    this.pagedCustomers = this.filteredCustomers.slice(start, end);
+    // this.goToPageControl.setValue(this.currentPage, { emitEvent: false });
+    this.cdr.markForCheck();
+  }
+
   // ========================
   // REVIEWS
   // ========================
@@ -459,7 +485,19 @@ export class CustomerList implements OnInit {
   }
 
   getStars(globalRating: number): number[] {
-    return Array(Math.round(globalRating / 2)).fill(0);
+    return Array(globalRating).fill(0);
+  }
+
+  goToReviewPage(customerId: string): void {
+    const requestedPage = Number(this.goToReviewPageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+
+    const totalPages = this.reviewTotal[customerId] || 0;
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+
+    this.reviewPage[customerId] = safePage - 1;
+    this.goToReviewPageControl.setValue(safePage, { emitEvent: false });
+    this.loadReviews(customerId);
   }
 
   // ========================
@@ -494,16 +532,10 @@ export class CustomerList implements OnInit {
     });
   }
 
-  /**
-   * STEP 1: Filter by minimum rating
-   */
   private filterVisits(visits: IVisit[]): IVisit[] {
     return visits; // No filters yes
   }
 
-  /**
-   * STEP 2: Sort by likes (descending)
-   */
   private sortVisits(visits: IVisit[]): IVisit[] {
     return [...visits].sort((a, b) => {
       let aVal = a[this.visitSortField];
@@ -526,9 +558,6 @@ export class CustomerList implements OnInit {
     });
   }
 
-  /**
-   * STEP 3: Paginate using slice()
-   */
   private paginateVisits(visits: IVisit[], customerId: string): IVisit[] {
     const page = this.visitPage[customerId] || 0;
     const start = page * this.visitLimit;
@@ -555,15 +584,6 @@ export class CustomerList implements OnInit {
 
     this.visitPage[customerId]--;
     this.loadVisits(customerId);
-  }
-
-  changeVisitPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage = page;
-      if (this.currentCustomerId) {
-        this.loadVisits(this.currentCustomerId);
-      }
-    }
   }
 
   prepareNewVisit(customerId: string): void {
@@ -672,26 +692,15 @@ export class CustomerList implements OnInit {
     return this.getVisitsByCustomer(customerId) || [];
   }
 
-  goToPage(): void {
-    const requestedPage = Number(this.goToPageControl.value);
+  goToVisitPage(customerId: string): void {
+    const requestedPage = Number(this.goToVisitPageControl.value);
     if (!Number.isFinite(requestedPage)) return;
 
-    const totalPages = this.totalPages;
+    const totalPages = this.visitTotal[customerId] || 0;
     const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
 
-    this.currentPage = safePage;
-    this.goToPageControl.setValue(safePage, { emitEvent: false });
-    this.updatePagedCustomers();
-  }
-
-  private updatePagedCustomers(): void {
-    const totalPages = this.totalPages;
-    this.currentPage = Math.min(Math.max(1, this.currentPage), totalPages);
-
-    const start = (this.currentPage - 1) * this.limit;
-    const end = start + this.limit;
-    this.pagedCustomers = this.filteredCustomers.slice(start, end);
-    // this.goToPageControl.setValue(this.currentPage, { emitEvent: false });
-    this.cdr.markForCheck();
+    this.visitPage[customerId] = safePage - 1;
+    this.goToVisitPageControl.setValue(safePage, { emitEvent: false });
+    this.loadVisits(customerId);
   }
 }
