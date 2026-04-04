@@ -19,15 +19,15 @@
 .brand {
   flex: 1;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .brand-title {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 800;
   color: var(--color-success);
   letter-spacing: 0.4px;
-  text-align: center;
+  text-align: left;
 }
 
 .nav {

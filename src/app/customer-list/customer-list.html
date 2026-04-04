@@ -88,7 +88,7 @@
             }
 
             <button class="btn-custom btn-primary btn-sm" type="button" (click)="edit(customer)" [disabled]="isCustomerDisabled(customer)">
-              ✏️ Edit
+              Edit
             </button>
 
             <button
@@ -231,8 +231,8 @@
                     <p>{{ review.comment }}</p>
                     <button class="btn-custom btn-primary" type="button" (click)="like(review)">👍 {{ review.likes || 0 }}</button>
                     <div style="margin-top:5px;">
-                      <button class="btn-custom btn-primary" type="button" (click)="editReview(review)">✏️ Edit</button>
-                      <button class="btn-custom btn-danger" type="button" (click)="deleteReview(review._id!, customer._id!)">🗑 Delete</button>
+                      <button class="btn-custom btn-primary" type="button" (click)="editReview(review)">Edit</button>
+                      <button class="btn-custom btn-danger" type="button" (click)="deleteReview(review._id!, customer._id!)">✕</button>
                     </div>
                   </div>
                 }

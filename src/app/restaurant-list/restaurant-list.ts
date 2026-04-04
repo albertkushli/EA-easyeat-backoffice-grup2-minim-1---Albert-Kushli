@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { RestaurantService } from '../services/restaurant.service';
 import { RewardService } from '../services/reward.service';
 import { VisitService } from '../services/visit.service';
+import { DishService } from '../services/dish.service';
 import { IRestaurant } from '../models/restaurant.model';
 import { IReward } from '../models/reward.model';
 import { IVisit } from '../models/visit.model';
+import { IDish } from '../models/dish.model';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
@@ -65,10 +67,21 @@ export class RestaurantList implements OnInit {
   visitsExpanded: { [restaurantId: string]: boolean } = {};
   goToVisitPageControl = new FormControl<number | null>(1);
 
+  restaurantDishes: { [key: string]: IDish[] } = {};
+  showDishForm: { [key: string]: boolean } = {};
+  newDishForm!: FormGroup;
+  editingDishId: string | null = null;
+  editDishForm!: FormGroup;
+  dishPage: { [restaurantId: string]: number } = {};
+  dishTotal: { [key: string]: number } = {};
+  dishLimit = 5;
+  goToDishPageControl = new FormControl<number | null>(1);
+
   constructor(
     private api: RestaurantService,
     private rewardApi: RewardService,
     private visitApi: VisitService,
+    private dishApi: DishService,
     private customerApi: CustomerService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
@@ -161,6 +174,36 @@ export class RestaurantList implements OnInit {
       billAmount: [0, [Validators.min(0)]],
       pointsEarned: [0, [Validators.min(0)]]
     });
+
+    this.newDishForm = this.fb.group({
+      name: ['', Validators.required],
+      description: [''],
+      section: ['', Validators.required],
+      price: [0, [Validators.required, Validators.min(0)]],
+      active: [true],
+      availableAtBreakfast: [false],
+      availableAtBrunch: [false],
+      availableAtLunch: [false],
+      availableAtHappyHour: [false],
+      availableAtDinner: [false],
+      availableAtAllDay: [false],
+      portionSize: ['']
+    });
+
+    this.editDishForm = this.fb.group({
+      name: ['', Validators.required],
+      description: [''],
+      section: ['', Validators.required],
+      price: [0, [Validators.required, Validators.min(0)]],
+      active: [true],
+      availableAtBreakfast: [false],
+      availableAtBrunch: [false],
+      availableAtLunch: [false],
+      availableAtHappyHour: [false],
+      availableAtDinner: [false],
+      availableAtAllDay: [false],
+      portionSize: ['']
+    });
   }
 
   ngOnInit(): void {
@@ -248,6 +291,9 @@ export class RestaurantList implements OnInit {
 
       this.visitPage[restaurantId] = 0;
       this.loadRestaurantVisits(restaurantId);
+
+      this.dishPage[restaurantId] = 0;
+      this.loadRestaurantDishes(restaurantId);
     }
   }
 
@@ -874,6 +920,200 @@ export class RestaurantList implements OnInit {
       },
       error: () => {
         this.errorMsg = 'Could not update visit.';
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ========================
+  // DISHES
+  // ========================
+
+  private buildAvailableAt(formValue: any): string[] {
+    const map: { [key: string]: string } = {
+      availableAtBreakfast: 'breakfast',
+      availableAtBrunch: 'brunch',
+      availableAtLunch: 'lunch',
+      availableAtHappyHour: 'happy-hour',
+      availableAtDinner: 'dinner',
+      availableAtAllDay: 'all-day',
+    };
+    return Object.keys(map).filter(k => formValue[k]).map(k => map[k]);
+  }
+
+  private patchDishFormAvailableAt(form: FormGroup, availableAt: string[] = []): void {
+    form.patchValue({
+      availableAtBreakfast: availableAt.includes('breakfast'),
+      availableAtBrunch: availableAt.includes('brunch'),
+      availableAtLunch: availableAt.includes('lunch'),
+      availableAtHappyHour: availableAt.includes('happy-hour'),
+      availableAtDinner: availableAt.includes('dinner'),
+      availableAtAllDay: availableAt.includes('all-day'),
+    });
+  }
+
+  private loadRestaurantDishes(restaurantId: string): void {
+    this.dishApi.getDishes().subscribe({
+      next: (allDishes: IDish[]) => {
+        const filtered = allDishes.filter(d => d.restaurant_id === restaurantId);
+        this.dishTotal[restaurantId] = filtered.length;
+        this.restaurantDishes[restaurantId] = this.paginateDishes(filtered, restaurantId);
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.restaurantDishes[restaurantId] = [];
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private paginateDishes(dishes: IDish[], restaurantId: string): IDish[] {
+    const page = this.dishPage[restaurantId] || 0;
+    const start = page * this.dishLimit;
+    const end = start + this.dishLimit;
+    this.dishTotal[restaurantId] = dishes.length;
+    return dishes.slice(start, end);
+  }
+
+  nextDishPage(restaurantId: string): void {
+    const page = this.dishPage[restaurantId] || 0;
+    const total = this.dishTotal[restaurantId] || 0;
+    if ((page + 1) * this.dishLimit >= total) return;
+    this.dishPage[restaurantId] = page + 1;
+    this.loadRestaurantDishes(restaurantId);
+  }
+
+  prevDishPage(restaurantId: string): void {
+    if ((this.dishPage[restaurantId] || 0) === 0) return;
+    this.dishPage[restaurantId]--;
+    this.loadRestaurantDishes(restaurantId);
+  }
+
+  goToDishPage(restaurantId: string): void {
+    const requestedPage = Number(this.goToDishPageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+    const totalPages = Math.max(1, Math.ceil((this.dishTotal[restaurantId] || 0) / this.dishLimit));
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+    this.dishPage[restaurantId] = safePage - 1;
+    this.goToDishPageControl.setValue(safePage, { emitEvent: false });
+    this.loadRestaurantDishes(restaurantId);
+  }
+
+  toggleDishForm(restaurantId: string): void {
+    this.showDishForm[restaurantId] = !this.showDishForm[restaurantId];
+    if (this.showDishForm[restaurantId]) {
+      this.newDishForm.reset();
+      this.newDishForm.patchValue({ active: true, price: 0 });
+    }
+  }
+
+  saveDish(restaurantId: string): void {
+    if (this.newDishForm.invalid) return;
+    const v = this.newDishForm.value;
+    const availableAt = this.buildAvailableAt(v);
+    if (availableAt.length === 0) {
+      this.errorMsg = 'Select at least one availability period.';
+      return;
+    }
+    this.loading = true;
+    this.cdr.markForCheck();
+    const data: Partial<IDish> = {
+      restaurant_id: restaurantId as any,
+      name: v.name,
+      description: v.description || undefined,
+      section: v.section,
+      price: v.price,
+      active: v.active,
+      availableAt,
+      portionSize: v.portionSize || undefined,
+    };
+    this.dishApi.createDish(data).subscribe({
+      next: () => {
+        this.showDishForm[restaurantId] = false;
+        this.loadRestaurantDishes(restaurantId);
+      },
+      error: () => {
+        this.errorMsg = 'Could not add dish.';
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  removeDish(restaurantId: string, dish: any): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: `Delete "${dish.name || 'this dish'}"?`
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        const dishId = dish._id || dish.id;
+        if (!dishId) return;
+        this.loading = true;
+        this.cdr.markForCheck();
+        this.dishApi.deleteDish(dishId).subscribe({
+          next: () => {
+            this.loadRestaurantDishes(restaurantId);
+          },
+          error: () => {
+            this.errorMsg = 'Could not remove dish.';
+            this.loading = false;
+            this.cdr.markForCheck();
+          }
+        });
+      }
+    });
+  }
+
+  startEditDish(dish: any): void {
+    const dishId = dish._id || dish.id;
+    if (!dishId) return;
+    this.editingDishId = dishId;
+    this.editDishForm.patchValue({
+      name: dish.name || '',
+      description: dish.description || '',
+      section: dish.section || '',
+      price: dish.price ?? 0,
+      active: dish.active ?? true,
+      portionSize: dish.portionSize || '',
+    });
+    this.patchDishFormAvailableAt(this.editDishForm, dish.availableAt || []);
+  }
+
+  cancelEditDish(): void {
+    this.editingDishId = null;
+    this.editDishForm.reset();
+  }
+
+  saveEditedDish(restaurantId: string): void {
+    if (this.editDishForm.invalid || !this.editingDishId) return;
+    const v = this.editDishForm.value;
+    const availableAt = this.buildAvailableAt(v);
+    if (availableAt.length === 0) {
+      this.errorMsg = 'Select at least one availability period.';
+      return;
+    }
+    this.loading = true;
+    this.cdr.markForCheck();
+    const data: Partial<IDish> = {
+      name: v.name,
+      description: v.description || undefined,
+      section: v.section,
+      price: v.price,
+      active: v.active,
+      availableAt,
+      portionSize: v.portionSize || undefined,
+    };
+    const targetDishId = this.editingDishId;
+    this.dishApi.updateDish(targetDishId, data).subscribe({
+      next: () => {
+        this.editingDishId = null;
+        this.loadRestaurantDishes(restaurantId);
+      },
+      error: () => {
+        this.errorMsg = 'Could not update dish.';
         this.loading = false;
         this.cdr.markForCheck();
       }
