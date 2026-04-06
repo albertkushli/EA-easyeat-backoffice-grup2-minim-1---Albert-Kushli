@@ -3,10 +3,10 @@ export interface IEmployee {
     restaurant_id: string;
     profile: {
         name: string;
+        password?: string;
         email?: string;
         phone?: string;
-        passwordHash: string;
-        role: string;
+        role?: 'owner' | 'staff';
     };
-    active: boolean;
+    isActive: boolean;
 }

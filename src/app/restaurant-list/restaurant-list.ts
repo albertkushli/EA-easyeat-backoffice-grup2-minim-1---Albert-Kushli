@@ -4,10 +4,12 @@ import { RestaurantService } from '../services/restaurant.service';
 import { RewardService } from '../services/reward.service';
 import { VisitService } from '../services/visit.service';
 import { DishService } from '../services/dish.service';
+import { EmployeeService } from '../services/employee.service';
 import { IRestaurant } from '../models/restaurant.model';
 import { IReward } from '../models/reward.model';
 import { IVisit } from '../models/visit.model';
 import { IDish } from '../models/dish.model';
+import { IEmployee } from '../models/employee.model';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
@@ -77,11 +79,22 @@ export class RestaurantList implements OnInit {
   dishLimit = 5;
   goToDishPageControl = new FormControl<number | null>(1);
 
+  restaurantEmployees: { [key: string]: IEmployee[] } = {};
+  showEmployeeForm: { [key: string]: boolean } = {};
+  newEmployeeForm!: FormGroup;
+  editingEmployeeId: string | null = null;
+  editEmployeeForm!: FormGroup;
+  employeePage: { [restaurantId: string]: number } = {};
+  employeeTotal: { [key: string]: number } = {};
+  employeeLimit = 6;
+  goToEmployeePageControl = new FormControl<number | null>(1);
+
   constructor(
     private api: RestaurantService,
     private rewardApi: RewardService,
     private visitApi: VisitService,
     private dishApi: DishService,
+    private employeeApi: EmployeeService,
     private customerApi: CustomerService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
@@ -204,6 +217,23 @@ export class RestaurantList implements OnInit {
       availableAtAllDay: [false],
       portionSize: ['']
     });
+
+    this.newEmployeeForm = this.fb.group({
+      name: ['', Validators.required],
+      email: [''],
+      phone: [''],
+      role: ['staff'],
+      password: [''],
+      isActive: [true]
+    });
+
+    this.editEmployeeForm = this.fb.group({
+      name: ['', Validators.required],
+      email: [''],
+      phone: [''],
+      role: ['staff'],
+      isActive: [true]
+    });
   }
 
   ngOnInit(): void {
@@ -294,6 +324,9 @@ export class RestaurantList implements OnInit {
 
       this.dishPage[restaurantId] = 0;
       this.loadRestaurantDishes(restaurantId);
+
+      this.employeePage[restaurantId] = 0;
+      this.loadRestaurantEmployees(restaurantId);
     }
   }
 
@@ -1114,6 +1147,163 @@ export class RestaurantList implements OnInit {
       },
       error: () => {
         this.errorMsg = 'Could not update dish.';
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ========================
+  // EMPLOYEES
+  // ========================
+
+  private loadRestaurantEmployees(restaurantId: string): void {
+    this.employeeApi.getEmployees().subscribe({
+      next: (allEmployees: IEmployee[]) => {
+        const filtered = allEmployees.filter(e => e.restaurant_id === restaurantId);
+        this.employeeTotal[restaurantId] = filtered.length;
+        this.restaurantEmployees[restaurantId] = this.paginateEmployees(filtered, restaurantId);
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.restaurantEmployees[restaurantId] = [];
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private paginateEmployees(employees: IEmployee[], restaurantId: string): IEmployee[] {
+    const page = this.employeePage[restaurantId] || 0;
+    const start = page * this.employeeLimit;
+    const end = start + this.employeeLimit;
+    this.employeeTotal[restaurantId] = employees.length;
+    return employees.slice(start, end);
+  }
+
+  nextEmployeePage(restaurantId: string): void {
+    const page = this.employeePage[restaurantId] || 0;
+    const total = this.employeeTotal[restaurantId] || 0;
+    if ((page + 1) * this.employeeLimit >= total) return;
+    this.employeePage[restaurantId] = page + 1;
+    this.loadRestaurantEmployees(restaurantId);
+  }
+
+  prevEmployeePage(restaurantId: string): void {
+    if ((this.employeePage[restaurantId] || 0) === 0) return;
+    this.employeePage[restaurantId]--;
+    this.loadRestaurantEmployees(restaurantId);
+  }
+
+  goToEmployeePage(restaurantId: string): void {
+    const requestedPage = Number(this.goToEmployeePageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+    const totalPages = Math.max(1, Math.ceil((this.employeeTotal[restaurantId] || 0) / this.employeeLimit));
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+    this.employeePage[restaurantId] = safePage - 1;
+    this.goToEmployeePageControl.setValue(safePage, { emitEvent: false });
+    this.loadRestaurantEmployees(restaurantId);
+  }
+
+  toggleEmployeeForm(restaurantId: string): void {
+    this.showEmployeeForm[restaurantId] = !this.showEmployeeForm[restaurantId];
+    if (this.showEmployeeForm[restaurantId]) {
+      this.newEmployeeForm.reset();
+      this.newEmployeeForm.patchValue({ role: 'staff', isActive: true });
+    }
+  }
+
+  saveEmployee(restaurantId: string): void {
+    if (this.newEmployeeForm.invalid) return;
+    const v = this.newEmployeeForm.value;
+    this.loading = true;
+    this.cdr.markForCheck();
+    const data: Partial<IEmployee> = {
+      restaurant_id: restaurantId,
+      profile: {
+        name: v.name,
+        email: v.email || undefined,
+        phone: v.phone || undefined,
+        role: v.role || 'staff',
+        password: v.password || undefined,
+      },
+      isActive: v.isActive,
+    };
+    this.employeeApi.createEmployee(data).subscribe({
+      next: () => {
+        this.showEmployeeForm[restaurantId] = false;
+        this.loadRestaurantEmployees(restaurantId);
+      },
+      error: () => {
+        this.errorMsg = 'Could not add employee.';
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  removeEmployee(restaurantId: string, employee: any): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: `Delete "${employee.profile?.name || 'this employee'}"?`
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        const employeeId = employee._id;
+        if (!employeeId) return;
+        this.loading = true;
+        this.cdr.markForCheck();
+        this.employeeApi.deleteEmployee(employeeId).subscribe({
+          next: () => { this.loadRestaurantEmployees(restaurantId); },
+          error: () => {
+            this.errorMsg = 'Could not remove employee.';
+            this.loading = false;
+            this.cdr.markForCheck();
+          }
+        });
+      }
+    });
+  }
+
+  startEditEmployee(employee: any): void {
+    if (!employee._id) return;
+    this.editingEmployeeId = employee._id;
+    this.editEmployeeForm.patchValue({
+      name: employee.profile?.name || '',
+      email: employee.profile?.email || '',
+      phone: employee.profile?.phone || '',
+      role: employee.profile?.role || 'staff',
+      isActive: employee.isActive ?? true,
+    });
+  }
+
+  cancelEditEmployee(): void {
+    this.editingEmployeeId = null;
+    this.editEmployeeForm.reset();
+  }
+
+  saveEditedEmployee(restaurantId: string): void {
+    if (this.editEmployeeForm.invalid || !this.editingEmployeeId) return;
+    const v = this.editEmployeeForm.value;
+    this.loading = true;
+    this.cdr.markForCheck();
+    const data: Partial<IEmployee> = {
+      profile: {
+        name: v.name,
+        email: v.email || undefined,
+        phone: v.phone || undefined,
+        role: v.role || 'staff',
+      },
+      isActive: v.isActive,
+    };
+    const targetId = this.editingEmployeeId;
+    this.employeeApi.updateEmployee(targetId, data).subscribe({
+      next: () => {
+        this.editingEmployeeId = null;
+        this.loadRestaurantEmployees(restaurantId);
+      },
+      error: () => {
+        this.errorMsg = 'Could not update employee.';
         this.loading = false;
         this.cdr.markForCheck();
       }
