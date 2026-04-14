@@ -39,5 +39,6 @@ export interface IRestaurant {
     badges?: string[];
     visits?: (string | IVisit)[]; 
     reviews?: string[];
+    recursos?: string; // Reference to Resource document ID
     deletedAt?: Date | null;
-}
+}

@@ -15,6 +15,8 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog';
 import { ICustomer } from '../models/customer.model';
 import { CustomerService } from '../services/customer.service';
+import { ResourceService } from '../services/resource.service';
+import { IResourceItem } from '../models/resource.model';
 
 @Component({
   selector: 'app-restaurant-list',
@@ -89,6 +91,15 @@ export class RestaurantList implements OnInit {
   employeeLimit = 6;
   goToEmployeePageControl = new FormControl<number | null>(1);
 
+  restaurantResources: { [key: string]: IResourceItem[] } = {};
+  resourceIds: { [key: string]: string } = {};
+  showResourceForm: { [key: string]: boolean } = {};
+  newResourceForm!: FormGroup;
+  resourcePage: { [key: string]: number } = {};
+  resourceTotal: { [key: string]: number } = {};
+  resourceLimit = 2;
+  goToResourcePageControl = new FormControl<number | null>(1);
+
   constructor(
     private api: RestaurantService,
     private rewardApi: RewardService,
@@ -96,6 +107,7 @@ export class RestaurantList implements OnInit {
     private dishApi: DishService,
     private employeeApi: EmployeeService,
     private customerApi: CustomerService,
+    private resourceApi: ResourceService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
     private dialog: MatDialog
@@ -234,6 +246,12 @@ export class RestaurantList implements OnInit {
       role: ['staff'],
       isActive: [true]
     });
+
+    this.newResourceForm = this.fb.group({
+      url: ['', [Validators.required, Validators.pattern('^https?://.+')]],
+      type: ['manual', Validators.required],
+      description: ['', [Validators.required, Validators.maxLength(500)]]
+    });
   }
 
   ngOnInit(): void {
@@ -327,6 +345,9 @@ export class RestaurantList implements OnInit {
 
       this.employeePage[restaurantId] = 0;
       this.loadRestaurantEmployees(restaurantId);
+
+      this.resourcePage[restaurantId] = 0;
+      this.loadRestaurantResources(restaurantId);
     }
   }
 
@@ -1306,6 +1327,139 @@ export class RestaurantList implements OnInit {
         this.errorMsg = 'Could not update employee.';
         this.loading = false;
         this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ========================
+  // RESOURCES
+  // ========================
+
+  private loadRestaurantResources(restaurantId: string): void {
+    this.resourceApi.getResourceByRestaurant(restaurantId).subscribe({
+      next: (resource) => {
+        if (resource) {
+          this.resourceIds[restaurantId] = resource._id!;
+          const items = resource.items || [];
+          this.resourceTotal[restaurantId] = items.length;
+          this.restaurantResources[restaurantId] = this.paginateResources(items, restaurantId);
+        } else {
+          this.restaurantResources[restaurantId] = [];
+          this.resourceTotal[restaurantId] = 0;
+        }
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        if (err.status === 404) {
+          this.restaurantResources[restaurantId] = [];
+          this.resourceTotal[restaurantId] = 0;
+        } else {
+          this.errorMsg = 'Could not load resources.';
+        }
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  private paginateResources(items: IResourceItem[], restaurantId: string): IResourceItem[] {
+    const page = this.resourcePage[restaurantId] || 0;
+    const start = page * this.resourceLimit;
+    const end = start + this.resourceLimit;
+    return items.slice(start, end);
+  }
+
+  nextResourcePage(restaurantId: string): void {
+    const page = this.resourcePage[restaurantId] || 0;
+    const total = this.resourceTotal[restaurantId] || 0;
+    if ((page + 1) * this.resourceLimit >= total) return;
+    this.resourcePage[restaurantId] = page + 1;
+    this.loadRestaurantResources(restaurantId);
+  }
+
+  prevResourcePage(restaurantId: string): void {
+    if ((this.resourcePage[restaurantId] || 0) === 0) return;
+    this.resourcePage[restaurantId]--;
+    this.loadRestaurantResources(restaurantId);
+  }
+
+  goToResourcePage(restaurantId: string): void {
+    const requestedPage = Number(this.goToResourcePageControl.value);
+    if (!Number.isFinite(requestedPage)) return;
+    const totalPages = Math.max(1, Math.ceil((this.resourceTotal[restaurantId] || 0) / this.resourceLimit));
+    const safePage = Math.min(Math.max(1, Math.trunc(requestedPage)), totalPages);
+    this.resourcePage[restaurantId] = safePage - 1;
+    this.goToResourcePageControl.setValue(safePage, { emitEvent: false });
+    this.loadRestaurantResources(restaurantId);
+  }
+
+  toggleResourceForm(restaurantId: string): void {
+    this.showResourceForm[restaurantId] = !this.showResourceForm[restaurantId];
+    if (this.showResourceForm[restaurantId]) {
+      this.newResourceForm.reset({ type: 'manual' });
+    }
+  }
+
+  saveResource(restaurant: IRestaurant): void {
+    if (this.newResourceForm.invalid || !restaurant._id) return;
+    this.loading = true;
+    this.cdr.markForCheck();
+
+    const item: IResourceItem = {
+      url: this.newResourceForm.value.url,
+      type: this.newResourceForm.value.type,
+      description: this.newResourceForm.value.description
+    };
+
+    const resId = this.resourceIds[restaurant._id];
+    if (resId) {
+      this.resourceApi.addItem(resId, item).subscribe({
+        next: () => {
+          this.showResourceForm[restaurant._id!] = false;
+          this.loadRestaurantResources(restaurant._id!);
+        },
+        error: () => {
+          this.errorMsg = 'Could not add resource item.';
+          this.loading = false;
+          this.cdr.markForCheck();
+        }
+      });
+    } else {
+      this.resourceApi.createResource({ restaurant_id: restaurant._id, items: [item] }).subscribe({
+        next: (newResource) => {
+          this.resourceIds[restaurant._id!] = newResource._id!;
+          this.showResourceForm[restaurant._id!] = false;
+          this.loadRestaurantResources(restaurant._id!);
+        },
+        error: () => {
+          this.errorMsg = 'Could not create resource.';
+          this.loading = false;
+          this.cdr.markForCheck();
+        }
+      });
+    }
+  }
+
+  removeResource(restaurantId: string, item: any): void {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      data: `Delete this resource item?`
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result && this.resourceIds[restaurantId]) {
+        const itemId = item._id || item.id;
+        if (!itemId) return;
+        this.loading = true;
+        this.resourceApi.removeItem(this.resourceIds[restaurantId], itemId).subscribe({
+          next: () => {
+            this.loadRestaurantResources(restaurantId);
+          },
+          error: () => {
+            this.errorMsg = 'Could not remove resource item.';
+            this.loading = false;
+            this.cdr.markForCheck();
+          }
+        });
       }
     });
   }
