@@ -99,6 +99,8 @@ export class RestaurantList implements OnInit {
   resourceTotal: { [key: string]: number } = {};
   resourceLimit = 2;
   goToResourcePageControl = new FormControl<number | null>(1);
+  editingResourceItemId: { [key: string]: string | null } = {};
+  editResourceForm!: FormGroup;
 
   constructor(
     private api: RestaurantService,
@@ -248,6 +250,12 @@ export class RestaurantList implements OnInit {
     });
 
     this.newResourceForm = this.fb.group({
+      url: ['', [Validators.required, Validators.pattern('^https?://.+')]],
+      type: ['manual', Validators.required],
+      description: ['', [Validators.required, Validators.maxLength(500)]]
+    });
+
+    this.editResourceForm = this.fb.group({
       url: ['', [Validators.required, Validators.pattern('^https?://.+')]],
       type: ['manual', Validators.required],
       description: ['', [Validators.required, Validators.maxLength(500)]]
@@ -1441,13 +1449,57 @@ export class RestaurantList implements OnInit {
     }
   }
 
+  startEditResource(restaurantId: string, item: any): void {
+    const itemId = item._id;
+    this.editingResourceItemId[restaurantId] = itemId;
+    this.editResourceForm.patchValue({
+      type: item.type,
+      url: item.url,
+      description: item.description
+    });
+    this.cdr.markForCheck();
+  }
+
+  cancelEditResource(restaurantId: string): void {
+    this.editingResourceItemId[restaurantId] = null;
+    this.editResourceForm.reset();
+    this.cdr.markForCheck();
+  }
+
+  saveEditedResource(restaurantId: string): void {
+    const itemId = this.editingResourceItemId[restaurantId];
+    const resourceId = this.resourceIds[restaurantId];
+    if (!itemId || !resourceId || this.editResourceForm.invalid) return;
+
+    this.loading = true;
+    this.cdr.markForCheck();
+
+    const updatedItem: IResourceItem = {
+      type: this.editResourceForm.value.type,
+      url: this.editResourceForm.value.url,
+      description: this.editResourceForm.value.description
+    };
+
+    this.resourceApi.updateItem(resourceId, itemId, updatedItem).subscribe({
+      next: () => {
+        this.editingResourceItemId[restaurantId] = null;
+        this.loadRestaurantResources(restaurantId);
+      },
+      error: () => {
+        this.errorMsg = 'Could not update resource item.';
+        this.loading = false;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
   removeResource(restaurantId: string, item: any): void {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       data: `Delete this resource item?`
     });
     dialogRef.afterClosed().subscribe(result => {
       if (result && this.resourceIds[restaurantId]) {
-        const itemId = item._id || item.id;
+        const itemId = item._id;
         if (!itemId) return;
         this.loading = true;
         this.resourceApi.removeItem(this.resourceIds[restaurantId], itemId).subscribe({

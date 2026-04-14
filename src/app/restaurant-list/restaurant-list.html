@@ -876,16 +876,39 @@
 
           <ul class="data-list" *ngIf="restaurantResources[restaurant._id!] && restaurantResources[restaurant._id!].length > 0">
             <li *ngFor="let item of restaurantResources[restaurant._id!]">
-              <span style="display:flex;flex-direction:column;gap:2px;">
-                <span>
-                  <strong>{{ item.type | titlecase }}</strong>
-                  <span class="chip chip-neutral" style="margin-left:6px;"><a [href]="item.url" target="_blank" style="color:inherit;text-decoration:none">{{ item.url }}</a></span>
+              <ng-container *ngIf="editingResourceItemId[restaurant._id!] !== item._id; else editResourceRow">
+                <span style="display:flex;flex-direction:column;gap:2px;">
+                  <span>
+                    <strong>{{ item.type | titlecase }}</strong>
+                    <span class="chip chip-neutral" style="margin-left:6px;"><a [href]="item.url" target="_blank" style="color:inherit;text-decoration:none">{{ item.url }}</a></span>
+                  </span>
+                  <span class="muted">{{ item.description }}</span>
                 </span>
-                <span class="muted">{{ item.description }}</span>
-              </span>
-              <span style="display:flex;align-items:center;">
-                <button type="button" class="btn-custom btn-danger btn-sm" (click)="removeResource(restaurant._id!, item)">✕</button>
-              </span>
+                <span style="display:flex;align-items:center;gap:8px;">
+                  <button type="button" class="btn-custom btn-secondary btn-sm" (click)="startEditResource(restaurant._id!, item)">✎</button>
+                  <button type="button" class="btn-custom btn-danger btn-sm" (click)="removeResource(restaurant._id!, item)">✕</button>
+                </span>
+              </ng-container>
+
+              <ng-template #editResourceRow>
+                <form [formGroup]="editResourceForm" (ngSubmit)="saveEditedResource(restaurant._id!)" style="width:100%">
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+                    <div style="display:flex;gap:8px;">
+                      <select class="select-custom" style="flex:1" formControlName="type">
+                        <option value="manual">Manual</option>
+                        <option value="video">Video</option>
+                        <option value="noticia">Noticia</option>
+                      </select>
+                      <input class="input-custom" style="flex:2" type="url" formControlName="url" placeholder="URL" />
+                    </div>
+                    <input class="input-custom" type="text" formControlName="description" placeholder="Description" />
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                      <button type="button" class="btn-custom btn-secondary btn-sm" (click)="cancelEditResource(restaurant._id!)">Cancel</button>
+                      <button type="submit" class="btn-custom btn-success btn-sm" [disabled]="editResourceForm.invalid">Save</button>
+                    </div>
+                  </div>
+                </form>
+              </ng-template>
             </li>
           </ul>
 

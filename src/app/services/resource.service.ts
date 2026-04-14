@@ -32,6 +32,10 @@ export class ResourceService {
     return this.http.delete<IResource>(`${this.baseUrl}/recursos/${resourceId}/items/${itemId}`);
   }
 
+  updateItem(resourceId: string, itemId: string, item: IResourceItem): Observable<IResource> {
+    return this.http.patch<IResource>(`${this.baseUrl}/recursos/${resourceId}/items/${itemId}`, item);
+  }
+
   deleteResource(resourceId: string): Observable<IResource> {
     return this.http.delete<IResource>(`${this.baseUrl}/recursos/${resourceId}`);
   }
